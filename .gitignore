@@ -26,3 +26,7 @@ data/
 
 # test build artifacts
 scripts/*.cjs
+
+# vitest scratch (mocked userData root in tests)
+.test-userdata/
+coverage/

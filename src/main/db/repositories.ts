@@ -27,7 +27,7 @@ const uid = (): string => randomUUID()
  * Parse a JSON column, returning `fallback` (and logging) instead of throwing on
  * a corrupt value — one bad row must not break an entire list() query.
  */
-function safeJson<T>(raw: unknown, fallback: T): T {
+export function safeJson<T>(raw: unknown, fallback: T): T {
   if (typeof raw !== 'string') return fallback
   try {
     return JSON.parse(raw) as T

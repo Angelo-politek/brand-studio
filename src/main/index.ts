@@ -6,6 +6,7 @@ import { ensureDataDirs } from './storage/paths'
 import { initDb, closeDb } from './db'
 import { registerIpc } from './ipc'
 import { startPython, stopPython } from './python/manager'
+import { logger, installGlobalErrorHandlers } from './logger'
 
 // Custom scheme must be registered before the app is ready.
 registerMediaScheme()
@@ -91,6 +92,8 @@ function createWindow(): void {
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.brandstudio.app')
 
+  installGlobalErrorHandlers()
+  logger.info('app ready')
   ensureDataDirs()
   initDb()
   applyCsp()

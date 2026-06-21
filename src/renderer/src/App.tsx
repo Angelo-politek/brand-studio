@@ -15,6 +15,7 @@ import Settings from './pages/Settings'
 import Editor from './pages/Editor'
 import VideoEditor from './pages/VideoEditor'
 import FeedbackHosts from './components/feedback/FeedbackHosts'
+import ErrorBoundary from './components/ErrorBoundary'
 import { resetPythonInfoCache } from './lib/python'
 
 function RequireBrand({ children }: { children: ReactNode }): JSX.Element {
@@ -43,48 +44,50 @@ function App(): JSX.Element {
   }
 
   return (
-    <HashRouter>
-      <FeedbackHosts />
-      <Routes>
-        <Route path="/" element={<StartupBrands />} />
-        <Route
-          path="/app"
-          element={
-            <RequireBrand>
-              <AppLayout />
-            </RequireBrand>
-          }
-        >
-          <Route index element={<Navigate to="dashboard" replace />} />
-          <Route path="dashboard" element={<Dashboard />} />
-          <Route path="brands" element={<Brands />} />
-          <Route path="templates" element={<Templates />} />
-          <Route path="projects" element={<Projects />} />
-          <Route path="planner" element={<Planner />} />
-          <Route path="assets" element={<Assets />} />
-          <Route path="videos" element={<VideoProjects />} />
-          <Route path="exports" element={<Exports />} />
-          <Route path="settings" element={<Settings />} />
-        </Route>
-        <Route
-          path="/app/editor/:projectId"
-          element={
-            <RequireBrand>
-              <Editor />
-            </RequireBrand>
-          }
-        />
-        <Route
-          path="/app/video/:videoId"
-          element={
-            <RequireBrand>
-              <VideoEditor />
-            </RequireBrand>
-          }
-        />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </HashRouter>
+    <ErrorBoundary>
+      <HashRouter>
+        <FeedbackHosts />
+        <Routes>
+          <Route path="/" element={<StartupBrands />} />
+          <Route
+            path="/app"
+            element={
+              <RequireBrand>
+                <AppLayout />
+              </RequireBrand>
+            }
+          >
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="brands" element={<Brands />} />
+            <Route path="templates" element={<Templates />} />
+            <Route path="projects" element={<Projects />} />
+            <Route path="planner" element={<Planner />} />
+            <Route path="assets" element={<Assets />} />
+            <Route path="videos" element={<VideoProjects />} />
+            <Route path="exports" element={<Exports />} />
+            <Route path="settings" element={<Settings />} />
+          </Route>
+          <Route
+            path="/app/editor/:projectId"
+            element={
+              <RequireBrand>
+                <Editor />
+              </RequireBrand>
+            }
+          />
+          <Route
+            path="/app/video/:videoId"
+            element={
+              <RequireBrand>
+                <VideoEditor />
+              </RequireBrand>
+            }
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </HashRouter>
+    </ErrorBoundary>
   )
 }
 

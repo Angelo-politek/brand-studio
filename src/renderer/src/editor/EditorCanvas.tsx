@@ -550,6 +550,9 @@ export default function EditorCanvas({
             borderStroke="#f97316"
             anchorSize={9}
             ignoreStroke
+            // Snap to common angles while rotating with the mouse.
+            rotationSnaps={[0, 45, 90, 135, 180, 225, 270, 315]}
+            rotationSnapTolerance={7}
             boundBoxFunc={(oldBox, newBox) =>
               newBox.width < 8 || newBox.height < 8 ? oldBox : newBox
             }

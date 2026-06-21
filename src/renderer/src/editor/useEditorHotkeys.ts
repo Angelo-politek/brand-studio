@@ -2,10 +2,29 @@ import { useHotkeys } from 'react-hotkeys-hook'
 import { useEditorStore } from '@renderer/stores/editorStore'
 import { callFit } from './fitRef'
 
+/**
+ * Minimal structural shape the hotkeys need. Both the design `editorStore` and
+ * the video `videoEditorStore` satisfy it (same action surface + zundo temporal),
+ * so the same shortcuts work in either editor.
+ */
+interface HotkeyStore {
+  getState: () => {
+    selectedIds: string[]
+    removeSelected: () => void
+    duplicateSelected: () => void
+    nudgeSelected: (dx: number, dy: number) => void
+    copySelected: () => void
+    paste: () => void
+    select: (id: string | null) => void
+    setZoom: (z: number) => void
+  }
+  temporal: { getState: () => { undo: () => void; redo: () => void } }
+}
+
 /** Editor keyboard shortcuts. react-hotkeys-hook ignores form fields by default. */
-export function useEditorHotkeys(): void {
+export function useEditorHotkeys(store: HotkeyStore = useEditorStore as HotkeyStore): void {
   useHotkeys(['delete', 'backspace'], (e) => {
-    const s = useEditorStore.getState()
+    const s = store.getState()
     if (s.selectedIds.length) {
       e.preventDefault()
       s.removeSelected()
@@ -14,29 +33,29 @@ export function useEditorHotkeys(): void {
 
   useHotkeys('mod+z', (e) => {
     e.preventDefault()
-    useEditorStore.temporal.getState().undo()
+    store.temporal.getState().undo()
   })
 
   useHotkeys(['mod+shift+z', 'mod+y'], (e) => {
     e.preventDefault()
-    useEditorStore.temporal.getState().redo()
+    store.temporal.getState().redo()
   })
 
   useHotkeys('mod+d', (e) => {
-    const s = useEditorStore.getState()
+    const s = store.getState()
     if (s.selectedIds.length) {
       e.preventDefault()
       s.duplicateSelected()
     }
   })
 
-  useHotkeys('mod+c', () => useEditorStore.getState().copySelected())
+  useHotkeys('mod+c', () => store.getState().copySelected())
   useHotkeys('mod+v', (e) => {
     e.preventDefault()
-    useEditorStore.getState().paste()
+    store.getState().paste()
   })
 
-  useHotkeys('escape', () => useEditorStore.getState().select(null))
+  useHotkeys('escape', () => store.getState().select(null))
 
   useHotkeys('mod+0', (e) => {
     e.preventDefault()
@@ -44,11 +63,11 @@ export function useEditorHotkeys(): void {
   })
   useHotkeys('mod+1', (e) => {
     e.preventDefault()
-    useEditorStore.getState().setZoom(1)
+    store.getState().setZoom(1)
   })
 
   useHotkeys(['up', 'down', 'left', 'right'], (e) => {
-    const s = useEditorStore.getState()
+    const s = store.getState()
     if (!s.selectedIds.length) return
     e.preventDefault()
     const d = e.shiftKey ? 10 : 1

@@ -3,7 +3,7 @@ import { AlignLeft, AlignCenter, AlignRight, Wand2, Loader2, Palette, Crop } fro
 import { useEditorStoreApi, useIsVideoEditor } from './editorStoreContext'
 import { useVideoEditorStore } from '@renderer/stores/videoEditorStore'
 import { useCurrentBrand } from '@renderer/stores/brandStore'
-import { removeBackground, recolorToPalette, tintImage } from '@renderer/lib/python'
+import { removeBackground, recolorToPalette } from '@renderer/lib/python'
 import { usePythonStatus } from '@renderer/components/BackendStatus'
 import { toast } from '@renderer/stores/uiStore'
 import { makeImageThumbnail } from '@renderer/lib/thumbnail'
@@ -149,11 +149,8 @@ export default function Inspector(): JSX.Element | null {
   const aiReady = usePythonStatus().status === 'ready'
   const [bgBusy, setBgBusy] = useState(false)
   const [matchBusy, setMatchBusy] = useState(false)
-  const [tintBusy, setTintBusy] = useState(false)
   const setCropMode = useStore((s) => s.setCropMode)
   // Recolor UI state.
-  const [tintColor, setTintColor] = useState('#f97316')
-  const [tintIntensity, setTintIntensity] = useState(0.6)
   const [selectedPalette, setSelectedPalette] = useState<string[]>([])
   const layer =
     selectedIds.length === 1 ? (layers.find((l) => l.id === selectedIds[0]) ?? null) : null
@@ -203,31 +200,6 @@ export default function Inspector(): JSX.Element | null {
       toast(`Color matching failed: ${(e as Error).message}`, 'error')
     } finally {
       setMatchBusy(false)
-    }
-  }
-
-  async function applyTint(): Promise<void> {
-    if (!layer || layer.type !== 'image' || !layer.src || !brandId) return
-    setTintBusy(true)
-    try {
-      const srcBytes = new Uint8Array(await (await fetch(mediaUrl(layer.src))).arrayBuffer())
-      const out = await tintImage(
-        srcBytes,
-        `${layer.name}.png`,
-        tintColor,
-        tintIntensity,
-        'multiply'
-      )
-      if (!out) {
-        toast('Tint unavailable (processing backend not ready).', 'error')
-        return
-      }
-      await saveProcessedAsLayerSrc(out, 'tint', 'tint')
-      toast('Tint applied.', 'success')
-    } catch (e) {
-      toast(`Tint failed: ${(e as Error).message}`, 'error')
-    } finally {
-      setTintBusy(false)
     }
   }
 
@@ -765,35 +737,6 @@ export default function Inspector(): JSX.Element | null {
               {bgBusy ? 'Removing…' : 'Remove background'}
             </button>
 
-            {/* Recolor: single tint (any color) */}
-            <div className="pt-1 border-t border-line space-y-2">
-              <span className="text-[11px] text-ink-faint font-medium">Tint</span>
-              <ColorPicker value={tintColor} onChange={setTintColor} />
-              <Row label="Intensity">
-                <input
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  value={tintIntensity}
-                  onChange={(e) => setTintIntensity(Number(e.target.value))}
-                  className="w-full"
-                />
-                <span className="text-[11px] text-ink-faint w-8 text-right">
-                  {Math.round(tintIntensity * 100)}%
-                </span>
-              </Row>
-              <button
-                onClick={applyTint}
-                disabled={tintBusy || !aiReady}
-                title={aiReady ? undefined : 'AI backend not ready'}
-                className="btn-surface w-full text-sm disabled:opacity-50"
-              >
-                {tintBusy ? <Loader2 size={14} className="animate-spin" /> : <Palette size={14} />}
-                {tintBusy ? 'Applying…' : 'Apply tint'}
-              </button>
-            </div>
-
             {/* Recolor: map onto brand palette (optional subset) */}
             {(brand?.colors.length ?? 0) > 0 && (
               <div className="pt-1 border-t border-line space-y-2">
@@ -840,7 +783,7 @@ export default function Inspector(): JSX.Element | null {
             {/* Color overlay */}
             <div className="pt-1 border-t border-line space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] text-ink-faint font-medium">Color Overlay</span>
+                <span className="text-[11px] text-ink-faint font-medium">Tint / Color overlay</span>
                 <button
                   onClick={() =>
                     set({
@@ -903,6 +846,28 @@ export default function Inspector(): JSX.Element | null {
         )}
 
         {/* Common */}
+        <Row label="Rotate">
+          <Num
+            value={Math.round(layer.rotation)}
+            step={1}
+            onChange={(v) => set({ rotation: ((v % 360) + 360) % 360 })}
+          />
+          <span className="text-ink-faint text-[11px]">°</span>
+          <button
+            onClick={() => set({ rotation: (Math.round(layer.rotation / 90) * 90 + 90) % 360 })}
+            className="btn-surface px-2 py-1 text-[11px] shrink-0"
+            title="Rotate 90° clockwise"
+          >
+            +90°
+          </button>
+          <button
+            onClick={() => set({ rotation: 0 })}
+            className="btn-surface px-2 py-1 text-[11px] shrink-0"
+            title="Reset rotation"
+          >
+            0°
+          </button>
+        </Row>
         <Row label="Opacity">
           <input
             type="range"

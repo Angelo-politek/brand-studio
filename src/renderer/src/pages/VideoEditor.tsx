@@ -5,6 +5,7 @@ import { useVideoEditorStore } from '@renderer/stores/videoEditorStore'
 import { useBrandStore } from '@renderer/stores/brandStore'
 import { ensureBrandFonts } from '@renderer/lib/fonts'
 import { EditorStoreProvider, type SharedEditorStore } from '@renderer/editor/editorStoreContext'
+import { useEditorHotkeys } from '@renderer/editor/useEditorHotkeys'
 import EditorCanvas from '@renderer/editor/EditorCanvas'
 import ElementsPanel from '@renderer/editor/ElementsPanel'
 import LayersPanel from '@renderer/editor/LayersPanel'
@@ -46,6 +47,7 @@ export default function VideoEditor(): JSX.Element {
   const lastSaved = useRef('')
 
   const store = useVideoEditorStore
+  useEditorHotkeys(useVideoEditorStore)
   const {
     name,
     width,
@@ -83,33 +85,42 @@ export default function VideoEditor(): JSX.Element {
     return () => clearTimeout(timer)
   }, [activeSceneId, playing, activeScene])
 
-  // Global timeline offset (ms) = sum of durations before the active scene + local playhead.
-  const globalOffsetMs =
-    scenes
-      .slice(
-        0,
-        Math.max(
-          0,
-          scenes.findIndex((s) => s.id === activeSceneId)
-        )
-      )
-      .reduce((sum, s) => sum + s.durationMs, 0) + playheadMs
+  const audioSrc = audio?.src
+  const audioVolume = audio?.volume
 
-  // Drive the background-music <audio> from play state + global playhead.
+  // Start/stop background music on play-state changes only. We seek once on
+  // play (and on pause) — NOT every animation frame, which previously caused
+  // constant currentTime resets and a glitchy/stuttering preview. Fresh playhead
+  // values are read from the store so this effect need not re-run per frame.
   useEffect(() => {
     const a = musicRef.current
-    if (!a || !audio) return
-    a.volume = audio.volume
-    const target = (audio.inMs + globalOffsetMs) / 1000
-    if (!playing) {
-      a.pause()
-      if (Math.abs(a.currentTime - target) > 0.1) a.currentTime = target
-    } else {
-      if (Math.abs(a.currentTime - target) > 0.4) a.currentTime = target
+    const st = useVideoEditorStore.getState()
+    if (!a || !st.audio) return
+    const offset =
+      st.scenes
+        .slice(
+          0,
+          Math.max(
+            0,
+            st.scenes.findIndex((s) => s.id === st.activeSceneId)
+          )
+        )
+        .reduce((sum, s) => sum + s.durationMs, 0) + st.playheadMs
+    const target = (st.audio.inMs + offset) / 1000
+    if (playing) {
+      if (Math.abs(a.currentTime - target) > 0.3) a.currentTime = target
       void a.play().catch(() => {})
+    } else {
+      a.pause()
+      a.currentTime = target
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playing, globalOffsetMs, audio?.volume, audio?.inMs, audio?.src])
+  }, [playing, audioSrc])
+
+  // Keep volume in sync without touching playback position.
+  useEffect(() => {
+    const a = musicRef.current
+    if (a && audioVolume != null) a.volume = audioVolume
+  }, [audioVolume])
 
   // Load project once.
   useEffect(() => {

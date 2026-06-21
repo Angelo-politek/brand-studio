@@ -184,7 +184,9 @@ export default function Timeline({
                       <ArrowRightLeft size={11} />
                     </button>
                     {transitionFor === scene.id && (
-                      <div className="absolute top-7 left-1/2 -translate-x-1/2 z-20 bg-surface-1 border border-line rounded-lg shadow-xl py-1 min-w-[110px]">
+                      // Opens upward: the timeline sits at the bottom of the
+                      // screen, so a downward menu would be clipped.
+                      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-30 bg-surface-1 border border-line rounded-lg shadow-xl py-1 min-w-[110px]">
                         {TRANSITIONS.map((t) => (
                           <button
                             key={t.type}

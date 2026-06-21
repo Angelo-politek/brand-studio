@@ -57,6 +57,23 @@ function useCommon(layer: Layer, ctx: NodeCtx): Record<string, unknown> {
       ctx.onDragEnd?.(layer.id)
       ctx.onChange({ x: nx, y: ny })
     },
+    // Live conversion for side anchors on text/image so the user sees the real
+    // result (reflow / crop) while dragging instead of a stretch that snaps
+    // back on release.
+    onTransform: (e: KonvaEventObject<Event>) => {
+      const n = e.target
+      if (layer.type !== 'text' && layer.type !== 'image') return
+      const stage = n.getStage()
+      const tr = stage?.findOne('Transformer') as Konva.Transformer | undefined
+      const anchor = tr && tr.nodes().length === 1 ? tr.getActiveAnchor() : null
+      if (!anchor || !SIDE_ANCHORS.has(anchor)) return
+      const patch = resolveTransform(layer, n, anchor)
+      n.scaleX(1)
+      n.scaleY(1)
+      if (patch.x != null) n.x(patch.x)
+      if (patch.y != null) n.y(patch.y)
+      ctx.onChange(patch)
+    },
     onTransformEnd: (e: KonvaEventObject<Event>) => {
       const n = e.target
       const stage = n.getStage()
@@ -296,39 +313,51 @@ export default function LayerNode({
           />
         </Group>
       )
-    case 'triangle':
+    case 'triangle': {
+      // Scale a unit polygon to fill the w×h box so it deforms with the layer.
+      const r = 50
       return (
         <Group {...common}>
           <RegularPolygon
             x={w / 2}
             y={h / 2}
             sides={3}
-            radius={Math.min(w, h) / 2}
+            radius={r}
+            scaleX={w / (2 * r)}
+            scaleY={h / (2 * r)}
             fill={layer.fill}
             stroke={layer.strokeWidth ? layer.strokeColor : undefined}
             strokeWidth={layer.strokeWidth ?? 0}
+            strokeScaleEnabled={false}
           />
         </Group>
       )
-    case 'polygon':
+    }
+    case 'polygon': {
+      const r = 50
       return (
         <Group {...common}>
           <RegularPolygon
             x={w / 2}
             y={h / 2}
             sides={layer.sides ?? 6}
-            radius={Math.min(w, h) / 2}
+            radius={r}
+            scaleX={w / (2 * r)}
+            scaleY={h / (2 * r)}
             fill={layer.fill}
             stroke={layer.strokeWidth ? layer.strokeColor : undefined}
             strokeWidth={layer.strokeWidth ?? 0}
+            strokeScaleEnabled={false}
           />
         </Group>
       )
+    }
     case 'line':
       return (
         <Group {...common}>
+          {/* Length follows the layer width so resizing actually stretches it. */}
           <Line
-            points={layer.points ?? [0, 0, w, 0]}
+            points={[0, h / 2, w, h / 2]}
             stroke={layer.strokeColor ?? '#ffffff'}
             strokeWidth={layer.strokeWidth ?? 6}
             lineCap="round"
@@ -339,7 +368,7 @@ export default function LayerNode({
       return (
         <Group {...common}>
           <Arrow
-            points={layer.points ?? [0, 0, w, 0]}
+            points={[0, h / 2, w, h / 2]}
             stroke={layer.strokeColor ?? '#ffffff'}
             fill={layer.strokeColor ?? '#ffffff'}
             strokeWidth={layer.strokeWidth ?? 6}

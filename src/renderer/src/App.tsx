@@ -15,6 +15,7 @@ import Settings from './pages/Settings'
 import Editor from './pages/Editor'
 import VideoEditor from './pages/VideoEditor'
 import FeedbackHosts from './components/feedback/FeedbackHosts'
+import { resetPythonInfoCache } from './lib/python'
 
 function RequireBrand({ children }: { children: ReactNode }): JSX.Element {
   const currentBrandId = useBrandStore((s) => s.currentBrandId)
@@ -29,6 +30,11 @@ function App(): JSX.Element {
   useEffect(() => {
     void load()
   }, [load])
+
+  // Keep the sidecar client cache fresh: a restart issues a new port + token.
+  useEffect(() => {
+    return window.api.app.onPythonStatus(() => resetPythonInfoCache())
+  }, [])
 
   if (!loaded) {
     return (

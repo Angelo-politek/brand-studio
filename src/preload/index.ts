@@ -8,6 +8,13 @@ const api: Api = {
     getPaths: () => ipcRenderer.invoke(IPC.appGetPaths),
     getPythonPort: () => ipcRenderer.invoke(IPC.appGetPythonPort),
     getPythonInfo: () => ipcRenderer.invoke(IPC.appGetPythonInfo),
+    getPythonStatus: () => ipcRenderer.invoke(IPC.appGetPythonStatus),
+    onPythonStatus: (cb) => {
+      const handler = (_e: unknown, info: unknown): void =>
+        cb(info as Parameters<typeof cb>[0])
+      ipcRenderer.on('python:status', handler)
+      return () => ipcRenderer.removeListener('python:status', handler)
+    },
     saveBinary: (input) => ipcRenderer.invoke(IPC.appSaveBinary, input),
     openFileDialog: (opts) => ipcRenderer.invoke(IPC.appOpenFileDialog, opts),
     readFile: (absPath) => ipcRenderer.invoke(IPC.appReadFile, absPath),

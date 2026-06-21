@@ -13,6 +13,11 @@ function authHeaders(): Record<string, string> {
   return info ? { Authorization: `Bearer ${info.token}` } : {}
 }
 
+/** Drop the cached {port, token} so the next call re-fetches it (after a restart). */
+export function resetPythonInfoCache(): void {
+  info = null
+}
+
 export async function isPythonReady(): Promise<boolean> {
   return (await base()) != null
 }

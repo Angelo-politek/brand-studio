@@ -35,6 +35,7 @@ import {
   videoRepo
 } from './db'
 import { getPythonPort, getPythonInfo } from './python/manager'
+import { getStatus } from './python/status'
 
 function sanitize(name: string): string {
   return name.replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 80) || 'file'
@@ -110,6 +111,7 @@ export function registerIpc(): void {
   ipcMain.handle(IPC.appGetPaths, () => getPaths())
   ipcMain.handle(IPC.appGetPythonPort, () => getPythonPort())
   ipcMain.handle(IPC.appGetPythonInfo, () => getPythonInfo())
+  ipcMain.handle(IPC.appGetPythonStatus, () => getStatus())
 
   handleValidated(IPC.appSaveBinary, S.saveBinaryInput, (input) =>
     writeBinary(input.subdir, input.filename, input.bytes)

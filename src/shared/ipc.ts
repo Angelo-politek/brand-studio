@@ -22,6 +22,7 @@ export const IPC = {
   appGetPaths: 'app:getPaths',
   appGetPythonPort: 'app:getPythonPort',
   appGetPythonInfo: 'app:getPythonInfo',
+  appGetPythonStatus: 'app:getPythonStatus',
   appSaveBinary: 'app:saveBinary',
   appOpenFileDialog: 'app:openFileDialog',
   appReadFile: 'app:readFile',
@@ -68,6 +69,20 @@ export const IPC = {
   videoDelete: 'video:delete',
   videoSaveThumb: 'video:saveThumb'
 } as const
+
+/** Lifecycle of the Python sidecar, surfaced to the renderer. */
+export type PythonStatusValue =
+  | 'idle'
+  | 'setting-up'
+  | 'starting'
+  | 'ready'
+  | 'down'
+  | 'unavailable'
+
+export interface PythonStatusInfo {
+  status: PythonStatusValue
+  detail: string
+}
 
 /** Resolved absolute data directories (created on startup). */
 export interface AppPaths {
@@ -177,6 +192,8 @@ export interface Api {
     getPaths(): Promise<AppPaths>
     getPythonPort(): Promise<number | null>
     getPythonInfo(): Promise<{ port: number; token: string } | null>
+    getPythonStatus(): Promise<PythonStatusInfo>
+    onPythonStatus(cb: (info: PythonStatusInfo) => void): () => void
     saveBinary(input: SaveBinaryInput): Promise<string>
     openFileDialog(opts?: OpenFileDialogOptions): Promise<string[]>
     readFile(absPath: string): Promise<Uint8Array>

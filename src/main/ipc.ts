@@ -2,7 +2,9 @@ import { ipcMain, dialog, shell, BrowserWindow } from 'electron'
 import { randomUUID } from 'crypto'
 import { join, normalize as normalizePath } from 'path'
 import { writeFile, readFile, mkdir, unlink } from 'fs/promises'
+import type { ZodSchema } from 'zod'
 import { IPC } from '@shared/ipc'
+import * as S from '@shared/schemas'
 import type {
   AssetImportInput,
   AssetListQuery,
@@ -12,7 +14,6 @@ import type {
   OpenFileDialogOptions,
   PlannerCreateInput,
   ProjectCreateInput,
-  SaveBinaryInput,
   TemplateCreateInput,
   VideoCreateInput
 } from '@shared/ipc'
@@ -80,6 +81,25 @@ async function safeUnlinkRelative(relativePath: string | null): Promise<void> {
   }
 }
 
+/**
+ * Register an IPC handler whose single payload argument is validated against a
+ * Zod schema before the handler runs. Invalid input rejects the invoke with a
+ * structured error instead of reaching the DB / filesystem.
+ */
+function handleValidated<T>(
+  channel: string,
+  schema: ZodSchema<T>,
+  fn: (input: T, e: Electron.IpcMainInvokeEvent) => unknown
+): void {
+  ipcMain.handle(channel, (e, raw) => {
+    const parsed = schema.safeParse(raw)
+    if (!parsed.success) {
+      throw new Error(`Invalid payload for ${channel}: ${parsed.error.message}`)
+    }
+    return fn(parsed.data, e)
+  })
+}
+
 // Absolute paths the user explicitly picked through a system file dialog.
 // `appReadFile` trusts these (the user authorized them) in addition to any path
 // inside the data root. Without this allowlist the renderer could read any file.
@@ -91,7 +111,7 @@ export function registerIpc(): void {
   ipcMain.handle(IPC.appGetPythonPort, () => getPythonPort())
   ipcMain.handle(IPC.appGetPythonInfo, () => getPythonInfo())
 
-  ipcMain.handle(IPC.appSaveBinary, (_e, input: SaveBinaryInput) =>
+  handleValidated(IPC.appSaveBinary, S.saveBinaryInput, (input) =>
     writeBinary(input.subdir, input.filename, input.bytes)
   )
 
@@ -132,14 +152,17 @@ export function registerIpc(): void {
   /* -------------------------------- brands ------------------------------ */
   ipcMain.handle(IPC.brandsList, () => brandsRepo.list())
   ipcMain.handle(IPC.brandsGet, (_e, id: string) => brandsRepo.get(id))
-  ipcMain.handle(IPC.brandsCreate, (_e, input: BrandCreateInput) => brandsRepo.create(input))
+  handleValidated(IPC.brandsCreate, S.brandCreateInput, (input) =>
+    brandsRepo.create(input as unknown as BrandCreateInput)
+  )
   ipcMain.handle(IPC.brandsUpdate, (_e, brand: Brand) => brandsRepo.update(brand))
   ipcMain.handle(IPC.brandsDelete, (_e, id: string) => brandsRepo.delete(id))
 
   /* -------------------------------- assets ------------------------------ */
   ipcMain.handle(IPC.assetsList, (_e, query: AssetListQuery) => assetsRepo.list(query))
 
-  ipcMain.handle(IPC.assetsImport, async (_e, input: AssetImportInput): Promise<Asset> => {
+  handleValidated(IPC.assetsImport, S.assetImportInput, async (parsed): Promise<Asset> => {
+    const input = parsed as unknown as AssetImportInput
     const filePath = await writeBinary('assets', input.name, input.bytes)
     let thumbPath: string | null = null
     if (input.thumbBytes) {
@@ -159,7 +182,14 @@ export function registerIpc(): void {
       size: input.bytes.byteLength,
       createdAt: Date.now()
     }
-    return assetsRepo.insert(asset)
+    try {
+      return assetsRepo.insert(asset)
+    } catch (err) {
+      // Roll back orphaned files if the DB insert fails.
+      await safeUnlinkRelative(filePath)
+      await safeUnlinkRelative(thumbPath)
+      throw err
+    }
   })
 
   ipcMain.handle(IPC.assetsUpdate, (_e, asset: Asset) => assetsRepo.update(asset))
@@ -176,8 +206,8 @@ export function registerIpc(): void {
   /* ------------------------------- projects ----------------------------- */
   ipcMain.handle(IPC.projectsList, (_e, brandId: string) => projectsRepo.list(brandId))
   ipcMain.handle(IPC.projectsGet, (_e, id: string) => projectsRepo.get(id))
-  ipcMain.handle(IPC.projectsCreate, (_e, input: ProjectCreateInput) =>
-    projectsRepo.create(input)
+  handleValidated(IPC.projectsCreate, S.projectCreateInput, (input) =>
+    projectsRepo.create(input as unknown as ProjectCreateInput)
   )
   ipcMain.handle(IPC.projectsUpdate, (_e, project: Project) => projectsRepo.update(project))
   ipcMain.handle(IPC.projectsSaveThumb, async (_e, id: string, bytes: Uint8Array) => {
@@ -194,8 +224,8 @@ export function registerIpc(): void {
   /* ------------------------------ templates ----------------------------- */
   ipcMain.handle(IPC.templatesList, (_e, brandId?: string) => templatesRepo.list(brandId))
   ipcMain.handle(IPC.templatesGet, (_e, id: string) => templatesRepo.get(id))
-  ipcMain.handle(IPC.templatesCreate, (_e, input: TemplateCreateInput) =>
-    templatesRepo.create(input)
+  handleValidated(IPC.templatesCreate, S.templateCreateInput, (input) =>
+    templatesRepo.create(input as unknown as TemplateCreateInput)
   )
   ipcMain.handle(IPC.templatesSaveThumb, async (_e, id: string, bytes: Uint8Array) => {
     const rel = await writeBinaryNamed('templates', `${id}.png`, bytes)
@@ -209,14 +239,18 @@ export function registerIpc(): void {
 
   /* ------------------------------- planner ------------------------------ */
   ipcMain.handle(IPC.plannerList, (_e, brandId: string) => plannerRepo.list(brandId))
-  ipcMain.handle(IPC.plannerCreate, (_e, input: PlannerCreateInput) => plannerRepo.create(input))
+  handleValidated(IPC.plannerCreate, S.plannerCreateInput, (input) =>
+    plannerRepo.create(input as PlannerCreateInput)
+  )
   ipcMain.handle(IPC.plannerUpdate, (_e, item: PlannerItem) => plannerRepo.update(item))
   ipcMain.handle(IPC.plannerDelete, (_e, id: string) => plannerRepo.delete(id))
 
   /* ------------------------------- video -------------------------------- */
   ipcMain.handle(IPC.videoList, (_e, brandId: string) => videoRepo.list(brandId))
   ipcMain.handle(IPC.videoGet, (_e, id: string) => videoRepo.get(id))
-  ipcMain.handle(IPC.videoCreate, (_e, input: VideoCreateInput) => videoRepo.create(input))
+  handleValidated(IPC.videoCreate, S.videoCreateInput, (input) =>
+    videoRepo.create(input as VideoCreateInput)
+  )
   ipcMain.handle(IPC.videoUpdate, (_e, vp: VideoProject) => videoRepo.update(vp))
   ipcMain.handle(IPC.videoDelete, async (_e, id: string) => {
     const vp = videoRepo.get(id)
@@ -229,7 +263,8 @@ export function registerIpc(): void {
     return rel
   })
 
-  ipcMain.handle(IPC.exportsSave, async (_e, input: ExportSaveInput): Promise<ExportRecord> => {
+  handleValidated(IPC.exportsSave, S.exportSaveInput, async (parsed): Promise<ExportRecord> => {
+    const input = parsed as ExportSaveInput
     const filePath = await writeBinary('exports', input.filename, input.bytes)
     const record: ExportRecord = {
       id: randomUUID(),
@@ -240,6 +275,12 @@ export function registerIpc(): void {
       settings: input.settings ?? {},
       createdAt: Date.now()
     }
-    return exportsRepo.insert(record)
+    try {
+      return exportsRepo.insert(record)
+    } catch (err) {
+      // Roll back the orphaned file if the DB insert fails.
+      await safeUnlinkRelative(filePath)
+      throw err
+    }
   })
 }

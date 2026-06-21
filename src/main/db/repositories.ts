@@ -23,6 +23,20 @@ import type {
 const now = (): number => Date.now()
 const uid = (): string => randomUUID()
 
+/**
+ * Parse a JSON column, returning `fallback` (and logging) instead of throwing on
+ * a corrupt value — one bad row must not break an entire list() query.
+ */
+function safeJson<T>(raw: unknown, fallback: T): T {
+  if (typeof raw !== 'string') return fallback
+  try {
+    return JSON.parse(raw) as T
+  } catch {
+    console.warn('[db] failed to parse JSON column, using fallback:', raw?.slice?.(0, 120))
+    return fallback
+  }
+}
+
 /* ------------------------------- Brands ------------------------------ */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -30,10 +44,10 @@ function mapBrand(row: any): Brand {
   return {
     id: row.id,
     name: row.name,
-    logos: JSON.parse(row.logos),
-    colors: JSON.parse(row.colors),
-    fonts: JSON.parse(row.fonts),
-    presets: JSON.parse(row.presets),
+    logos: safeJson(row.logos, []),
+    colors: safeJson(row.colors, []),
+    fonts: safeJson(row.fonts, []),
+    presets: safeJson(row.presets, []),
     createdAt: row.created_at,
     updatedAt: row.updated_at
   }
@@ -107,7 +121,7 @@ function mapAsset(row: any): Asset {
     folder: row.folder,
     filePath: row.file_path,
     thumbPath: row.thumb_path,
-    tags: JSON.parse(row.tags),
+    tags: safeJson(row.tags, []),
     mime: row.mime,
     width: row.width,
     height: row.height,
@@ -164,10 +178,11 @@ export const assetsRepo = {
 function mapProject(row: any): Project {
   let pages: Page[] | undefined
   if (row.pages) {
-    try { pages = JSON.parse(row.pages) } catch { /* fall through */ }
+    const parsed = safeJson<Page[] | null>(row.pages, null)
+    if (parsed) pages = parsed
   }
-  const canvas = JSON.parse(row.canvas)
-  const layers = JSON.parse(row.layers)
+  const canvas = safeJson(row.canvas, { width: 1080, height: 1080, background: '#ffffff' })
+  const layers = safeJson(row.layers, [])
   // If pages column is missing or empty, synthesize a single page from canvas/layers.
   if (!pages || pages.length === 0) {
     pages = [{ id: randomUUID(), name: 'Page 1', canvas, layers }]
@@ -261,9 +276,9 @@ function mapTemplate(row: any): Template {
     brandId: row.brand_id,
     name: row.name,
     type: row.type,
-    canvas: JSON.parse(row.canvas),
-    layers: JSON.parse(row.layers),
-    variables: JSON.parse(row.variables),
+    canvas: safeJson(row.canvas, { width: 1080, height: 1080, background: '#ffffff' }),
+    layers: safeJson(row.layers, []),
+    variables: safeJson(row.variables, []),
     thumbPath: row.thumb_path,
     createdAt: row.created_at,
     updatedAt: row.updated_at
@@ -332,7 +347,7 @@ function mapExport(row: any): ExportRecord {
     brandId: row.brand_id,
     format: row.format,
     filePath: row.file_path,
-    settings: JSON.parse(row.settings),
+    settings: safeJson(row.settings, {}),
     createdAt: row.created_at
   }
 }
@@ -432,8 +447,8 @@ export const plannerRepo = {
 /* --------------------------- Video projects -------------------------- */
 
 function mapVideo(row: any): VideoProject {
-  const scenesRaw = row.scenes ? JSON.parse(row.scenes) : []
-  const audio = row.audio ? JSON.parse(row.audio) : null
+  const scenesRaw = safeJson(row.scenes, [] as VideoProject['scenes'])
+  const audio = row.audio ? safeJson(row.audio, null) : null
 
   // Migrate legacy single-clip projects (pre-v2) into a single scene so they
   // open cleanly in the timeline editor.
@@ -467,7 +482,7 @@ function mapVideo(row: any): VideoProject {
           opacity: 1,
           crop: null
         },
-        layers: row.overlays ? JSON.parse(row.overlays) : []
+        layers: safeJson(row.overlays, [])
       }
     ]
   }

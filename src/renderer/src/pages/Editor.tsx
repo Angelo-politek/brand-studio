@@ -14,7 +14,30 @@ import ExportDialog from '@renderer/components/ExportDialog'
 import ResizeDialog from '@renderer/components/ResizeDialog'
 import { getStage } from '@renderer/editor/stageRef'
 import { captureThumbnailBytes } from '@renderer/editor/exportArtboard'
+import { toast } from '@renderer/stores/uiStore'
 import type { Project } from '@shared/types'
+
+/** Build a Project snapshot from the current editor store state. */
+function currentProject(): Project | null {
+  const st = useEditorStore.getState()
+  if (!st.projectId || !st.brandId) return null
+  return {
+    id: st.projectId,
+    brandId: st.brandId,
+    name: st.name,
+    type: st.type,
+    canvas: st.canvas,
+    layers: st.layers,
+    pages: st.pages,
+    thumbPath: null,
+    createdAt: st.createdAt,
+    updatedAt: Date.now()
+  }
+}
+
+function snapshotKey(p: Pick<Project, 'name' | 'canvas' | 'layers' | 'pages'>): string {
+  return JSON.stringify({ name: p.name, canvas: p.canvas, layers: p.layers, pages: p.pages })
+}
 
 export default function Editor(): JSX.Element {
   const { projectId } = useParams<{ projectId: string }>()
@@ -44,7 +67,7 @@ export default function Editor(): JSX.Element {
       }
       useEditorStore.getState().loadProject(p)
       useEditorStore.temporal.getState().clear()
-      lastSavedRef.current = JSON.stringify({ name: p.name, canvas: p.canvas, layers: p.layers, pages: p.pages })
+      lastSavedRef.current = snapshotKey(p)
       const brand =
         useBrandStore.getState().brands.find((b) => b.id === p.brandId) ??
         (await window.api.brands.get(p.brandId))
@@ -56,41 +79,65 @@ export default function Editor(): JSX.Element {
     }
   }, [projectId, navigate])
 
+  // Persist the current state immediately. Surfaces errors to the user and
+  // never leaves the saving spinner stuck. Returns true on success.
+  async function persist(withThumb: boolean): Promise<boolean> {
+    const project = currentProject()
+    if (!project) return false
+    setSaving(true)
+    try {
+      await window.api.projects.update(project)
+      lastSavedRef.current = snapshotKey(project)
+      if (withThumb) {
+        // Thumbnail refresh is best-effort and must not fail the save.
+        const stage = getStage()
+        if (stage) {
+          try {
+            await window.api.projects.saveThumb(project.id, captureThumbnailBytes(stage, project.canvas))
+          } catch {
+            /* non-fatal */
+          }
+        }
+      }
+      return true
+    } catch (err) {
+      console.error('autosave failed', err)
+      toast('Salvataggio non riuscito — le modifiche non sono state salvate.', 'error')
+      return false
+    } finally {
+      setSaving(false)
+    }
+  }
+
   // Debounced autosave whenever design data changes.
   useEffect(() => {
     const snapshot = JSON.stringify({ name, canvas, layers, pages })
     if (snapshot === lastSavedRef.current || !lastSavedRef.current) return
     setSaving(true)
-    const t = setTimeout(async () => {
-      const st = useEditorStore.getState()
-      if (!st.projectId || !st.brandId) return
-      const project: Project = {
-        id: st.projectId,
-        brandId: st.brandId,
-        name: st.name,
-        type: st.type,
-        canvas: st.canvas,
-        layers: st.layers,
-        pages: st.pages,
-        thumbPath: null,
-        createdAt: st.createdAt,
-        updatedAt: Date.now()
-      }
-      await window.api.projects.update(project)
-      lastSavedRef.current = JSON.stringify({ name: st.name, canvas: st.canvas, layers: st.layers, pages: st.pages })
-      // Refresh the grid thumbnail (best-effort, overwrites projects/<id>.png).
-      const stage = getStage()
-      if (stage) {
-        try {
-          await window.api.projects.saveThumb(st.projectId, captureThumbnailBytes(stage, st.canvas))
-        } catch {
-          /* non-fatal */
-        }
-      }
-      setSaving(false)
+    const t = setTimeout(() => {
+      void persist(true)
     }, 600)
     return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [name, canvas, layers, pages])
+
+  // Flush any pending changes on window close / navigation away, so closing
+  // within the debounce window does not lose work.
+  useEffect(() => {
+    function hasPending(): boolean {
+      const p = currentProject()
+      return !!p && !!lastSavedRef.current && snapshotKey(p) !== lastSavedRef.current
+    }
+    const onBeforeUnload = (): void => {
+      if (hasPending()) void persist(false)
+    }
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => {
+      window.removeEventListener('beforeunload', onBeforeUnload)
+      if (hasPending()) void persist(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <div className="h-full flex flex-col bg-surface-0">

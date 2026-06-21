@@ -24,7 +24,7 @@ export function animateLayer(layer: Layer, playheadMs: number, sceneDurationMs: 
   }
 
   let opacity = layer.opacity
-  let x = layer.x
+  const x = layer.x
   let y = layer.y
   let scaleX = layer.scaleX
   let scaleY = layer.scaleY

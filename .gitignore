@@ -1,0 +1,28 @@
+node_modules/
+out/
+dist/
+*.log
+.DS_Store
+
+# Python backend
+backend/.venv/
+backend/__pycache__/
+backend/**/__pycache__/
+*.pyc
+
+# Large ML models (re-fetched by setup_venv) — keep out of git
+backend/models/*.onnx
+backend/test.png
+backend/proc.png
+backend/thumb.png
+backend/nobg.png
+
+# Local data (created at runtime in userData, but ignore any local copies)
+data/
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+
+# test build artifacts
+scripts/*.cjs

@@ -1,0 +1,32 @@
+appId: com.brandstudio.app
+productName: Brand Studio
+directories:
+  buildResources: build
+  output: dist
+files:
+  - '!**/.vscode/*'
+  - '!src/*'
+  - '!backend/.venv/*'
+  - '!electron.vite.config.{js,ts,mjs,cjs}'
+  - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
+  - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
+  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+asarUnpack:
+  - resources/**
+  - backend/**
+extraResources:
+  - from: backend
+    to: backend
+    filter:
+      - '**/*'
+      - '!.venv/**'
+      - '!__pycache__/**'
+win:
+  target:
+    - nsis
+nsis:
+  artifactName: ${name}-${version}-setup.${ext}
+  shortcutName: ${productName}
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+npmRebuild: true

@@ -46,6 +46,7 @@ const api: Api = {
     list: (brandId) => ipcRenderer.invoke(IPC.templatesList, brandId),
     get: (id) => ipcRenderer.invoke(IPC.templatesGet, id),
     create: (input) => ipcRenderer.invoke(IPC.templatesCreate, input),
+    rename: (id, name) => ipcRenderer.invoke(IPC.templatesRename, id, name),
     delete: (id) => ipcRenderer.invoke(IPC.templatesDelete, id),
     saveThumb: (id, bytes) => ipcRenderer.invoke(IPC.templatesSaveThumb, id, bytes)
   },

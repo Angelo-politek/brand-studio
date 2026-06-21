@@ -328,6 +328,11 @@ export const templatesRepo = {
   setThumb(id: string, thumbPath: string): void {
     getDb().prepare('UPDATE templates SET thumb_path = ? WHERE id = ?').run(thumbPath, id)
   },
+  rename(id: string, name: string): void {
+    getDb()
+      .prepare('UPDATE templates SET name = ?, updated_at = ? WHERE id = ?')
+      .run(name, now(), id)
+  },
   delete(id: string): void {
     getDb().prepare('DELETE FROM templates WHERE id = ?').run(id)
   }

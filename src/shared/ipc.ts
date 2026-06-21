@@ -51,6 +51,7 @@ export const IPC = {
   templatesList: 'templates:list',
   templatesGet: 'templates:get',
   templatesCreate: 'templates:create',
+  templatesRename: 'templates:rename',
   templatesDelete: 'templates:delete',
   templatesSaveThumb: 'templates:saveThumb',
 
@@ -226,6 +227,7 @@ export interface Api {
     list(brandId?: string): Promise<Template[]>
     get(id: string): Promise<Template | null>
     create(input: TemplateCreateInput): Promise<Template>
+    rename(id: string, name: string): Promise<void>
     delete(id: string): Promise<void>
     saveThumb(id: string, bytes: Uint8Array): Promise<string>
   }

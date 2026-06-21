@@ -234,6 +234,9 @@ export function registerIpc(): void {
     templatesRepo.setThumb(id, rel)
     return rel
   })
+  ipcMain.handle(IPC.templatesRename, (_e, id: string, name: string) =>
+    templatesRepo.rename(id, name)
+  )
   ipcMain.handle(IPC.templatesDelete, (_e, id: string) => templatesRepo.delete(id))
 
   /* ------------------------------- exports ------------------------------ */

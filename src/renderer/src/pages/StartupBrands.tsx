@@ -7,10 +7,11 @@ import { mediaUrl } from '@shared/ipc'
 import type { Brand } from '@shared/types'
 
 export default function StartupBrands(): JSX.Element {
-  const { brands, load, create, remove, select } = useBrandStore()
+  const { brands, load, create, createDemo, remove, select } = useBrandStore()
   const navigate = useNavigate()
   const [creating, setCreating] = useState(false)
   const [name, setName] = useState('')
+  const [seeding, setSeeding] = useState(false)
 
   useEffect(() => {
     void load()
@@ -35,6 +36,16 @@ export default function StartupBrands(): JSX.Element {
     edit(brand)
   }
 
+  async function seedDemo(): Promise<void> {
+    setSeeding(true)
+    try {
+      const brand = await createDemo()
+      open(brand)
+    } finally {
+      setSeeding(false)
+    }
+  }
+
   async function del(brand: Brand): Promise<void> {
     if (
       await confirmDialog(`Delete brand "${brand.name}" and all its data? This cannot be undone.`)
@@ -49,6 +60,15 @@ export default function StartupBrands(): JSX.Element {
         <div className="text-center mb-12">
           <h1 className="text-4xl font-semibold tracking-tight">Brand Studio</h1>
           <p className="mt-2 text-ink-muted">Select a brand to continue, or create a new one.</p>
+          {brands.length === 0 && (
+            <button
+              onClick={seedDemo}
+              disabled={seeding}
+              className="btn-surface mt-5 text-sm disabled:opacity-50"
+            >
+              {seeding ? 'Creating…' : 'Try a demo brand'}
+            </button>
+          )}
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">

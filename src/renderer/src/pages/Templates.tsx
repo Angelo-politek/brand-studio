@@ -7,6 +7,7 @@ import BatchDialog from '@renderer/components/BatchDialog'
 import { useCurrentBrand } from '@renderer/stores/brandStore'
 import { confirmDialog } from '@renderer/stores/uiStore'
 import { applyVariables, cloneLayers } from '@renderer/lib/variables'
+import { STARTER_TEMPLATES } from '@renderer/lib/starterTemplates'
 import { mediaUrl } from '@shared/ipc'
 import type { Template } from '@shared/types'
 
@@ -49,6 +50,20 @@ export default function Templates(): JSX.Element {
     else void instantiate(t)
   }
 
+  async function openStarter(starterId: string): Promise<void> {
+    const starter = STARTER_TEMPLATES.find((s) => s.id === starterId)
+    if (!starter || !brandId) return
+    const layers = starter.build(starter.canvas, brand)
+    const project = await window.api.projects.create({
+      brandId,
+      name: starter.name,
+      type: 'custom',
+      canvas: starter.canvas,
+      layers
+    })
+    navigate(`/app/editor/${project.id}`)
+  }
+
   async function del(e: React.MouseEvent, id: string): Promise<void> {
     e.stopPropagation()
     if (await confirmDialog('Delete this template?')) {
@@ -64,79 +79,114 @@ export default function Templates(): JSX.Element {
         subtitle="Reusable blueprints. Save any design as a template from the editor."
       />
 
-      <div className="flex-1 overflow-y-auto p-8">
-        {templates.length === 0 ? (
-          <div className="h-full grid place-items-center text-center text-ink-faint">
-            <div className="flex flex-col items-center gap-3">
-              <LayoutTemplate size={28} />
-              <p className="text-sm">
-                No templates yet. Open a design and choose “Save as template”.
-              </p>
-            </div>
-          </div>
-        ) : (
+      <div className="flex-1 overflow-y-auto p-8 space-y-8">
+        {/* Built-in starter templates — always available so there is never a dead end. */}
+        <section>
+          <h2 className="text-sm font-medium text-ink mb-1">Starter templates</h2>
+          <p className="text-[11px] text-ink-faint mb-3">
+            Ready-made layouts using your brand colors and fonts.
+          </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            {templates.map((t) => {
-              const ar = t.canvas.width / t.canvas.height
+            {STARTER_TEMPLATES.map((s) => {
+              const ar = s.canvas.width / s.canvas.height
               return (
-                <div
-                  key={t.id}
-                  onClick={() => use(t)}
-                  className="group card overflow-hidden cursor-pointer hover:border-accent/60 transition-colors"
+                <button
+                  key={s.id}
+                  onClick={() => void openStarter(s.id)}
+                  className="group card overflow-hidden cursor-pointer hover:border-accent/60 transition-colors text-left"
                 >
-                  <div className="aspect-[4/3] bg-surface-2 grid place-items-center overflow-hidden relative">
-                    {t.thumbPath ? (
-                      <img
-                        src={mediaUrl(t.thumbPath)}
-                        alt=""
-                        className="max-h-full max-w-full object-contain"
-                      />
-                    ) : (
-                      <div
-                        className="border border-line shadow"
-                        style={{
-                          background:
-                            t.canvas.background === 'transparent' ? '#fff' : t.canvas.background,
-                          width: ar >= 1 ? 96 : 96 * ar,
-                          height: ar >= 1 ? 96 / ar : 96
-                        }}
-                      />
-                    )}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setBatching(t)
+                  <div className="aspect-[4/3] bg-surface-2 grid place-items-center overflow-hidden">
+                    <div
+                      className="border border-line shadow grid place-items-center"
+                      style={{
+                        background: s.canvas.background,
+                        width: ar >= 1 ? 96 : 96 * ar,
+                        height: ar >= 1 ? 96 / ar : 96
                       }}
-                      title="Batch generate"
-                      className="absolute top-2 right-11 h-7 w-7 rounded bg-black/60 text-white grid place-items-center opacity-0 group-hover:opacity-100"
                     >
-                      <Rows3 size={14} />
-                    </button>
-                    <button
-                      onClick={(e) => del(e, t.id)}
-                      className="absolute top-2 right-2 h-7 w-7 rounded bg-black/60 text-white grid place-items-center opacity-0 group-hover:opacity-100"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                  <div className="px-3 py-2">
-                    <div className="truncate text-sm font-medium">{t.name}</div>
-                    <div className="text-[11px] text-ink-faint flex items-center gap-2">
-                      <span>
-                        {t.canvas.width}×{t.canvas.height}
-                      </span>
-                      {t.variables.length > 0 && (
-                        <span className="flex items-center gap-1 text-accent">
-                          <Braces size={11} /> {t.variables.length}
-                        </span>
-                      )}
+                      <LayoutTemplate size={18} className="text-ink-faint" />
                     </div>
                   </div>
-                </div>
+                  <div className="px-3 py-2">
+                    <div className="truncate text-sm font-medium">{s.name}</div>
+                    <div className="text-[11px] text-ink-faint truncate">{s.description}</div>
+                  </div>
+                </button>
               )
             })}
           </div>
-        )}
+        </section>
+
+        <section>
+          <h2 className="text-sm font-medium text-ink mb-3">Your templates</h2>
+          {templates.length === 0 ? (
+            <p className="text-sm text-ink-faint">
+              No saved templates yet. Open a design and choose “Save as template”.
+            </p>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              {templates.map((t) => {
+                const ar = t.canvas.width / t.canvas.height
+                return (
+                  <div
+                    key={t.id}
+                    onClick={() => use(t)}
+                    className="group card overflow-hidden cursor-pointer hover:border-accent/60 transition-colors"
+                  >
+                    <div className="aspect-[4/3] bg-surface-2 grid place-items-center overflow-hidden relative">
+                      {t.thumbPath ? (
+                        <img
+                          src={mediaUrl(t.thumbPath)}
+                          alt=""
+                          className="max-h-full max-w-full object-contain"
+                        />
+                      ) : (
+                        <div
+                          className="border border-line shadow"
+                          style={{
+                            background:
+                              t.canvas.background === 'transparent' ? '#fff' : t.canvas.background,
+                            width: ar >= 1 ? 96 : 96 * ar,
+                            height: ar >= 1 ? 96 / ar : 96
+                          }}
+                        />
+                      )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setBatching(t)
+                        }}
+                        title="Batch generate"
+                        className="absolute top-2 right-11 h-7 w-7 rounded bg-black/60 text-white grid place-items-center opacity-0 group-hover:opacity-100"
+                      >
+                        <Rows3 size={14} />
+                      </button>
+                      <button
+                        onClick={(e) => del(e, t.id)}
+                        className="absolute top-2 right-2 h-7 w-7 rounded bg-black/60 text-white grid place-items-center opacity-0 group-hover:opacity-100"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                    <div className="px-3 py-2">
+                      <div className="truncate text-sm font-medium">{t.name}</div>
+                      <div className="text-[11px] text-ink-faint flex items-center gap-2">
+                        <span>
+                          {t.canvas.width}×{t.canvas.height}
+                        </span>
+                        {t.variables.length > 0 && (
+                          <span className="flex items-center gap-1 text-accent">
+                            <Braces size={11} /> {t.variables.length}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </section>
       </div>
 
       {filling && (

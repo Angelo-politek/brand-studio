@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { v4 as uuid } from 'uuid'
-import type { Brand, ExportPreset, BrandFont } from '@shared/types'
+import type { Brand, BrandColor, ExportPreset, BrandFont } from '@shared/types'
+import { STARTER_TEMPLATES } from '@renderer/lib/starterTemplates'
 
 const LS_KEY = 'bs:currentBrandId'
 
@@ -27,6 +28,7 @@ interface BrandState {
   loaded: boolean
   load: () => Promise<void>
   create: (name: string) => Promise<Brand>
+  createDemo: () => Promise<Brand>
   update: (brand: Brand) => Promise<Brand>
   remove: (id: string) => Promise<void>
   select: (id: string | null) => void
@@ -52,6 +54,33 @@ export const useBrandStore = create<BrandState>((set) => ({
       fonts: defaultFonts(),
       presets: defaultPresets()
     })
+    set((s) => ({ brands: [brand, ...s.brands] }))
+    return brand
+  },
+
+  async createDemo() {
+    const colors: BrandColor[] = [
+      { id: uuid(), role: 'primary', hex: '#f97316', name: 'Orange' },
+      { id: uuid(), role: 'secondary', hex: '#0b0d12', name: 'Ink' },
+      { id: uuid(), role: 'accent', hex: '#22d3ee', name: 'Cyan' }
+    ]
+    const brand = await window.api.brands.create({
+      name: 'Demo Brand',
+      colors,
+      logos: [],
+      fonts: defaultFonts(),
+      presets: defaultPresets()
+    })
+    // Seed a couple of starter designs so the brand isn't empty.
+    for (const starter of STARTER_TEMPLATES.slice(0, 2)) {
+      await window.api.projects.create({
+        brandId: brand.id,
+        name: starter.name,
+        type: 'custom',
+        canvas: starter.canvas,
+        layers: starter.build(starter.canvas, brand)
+      })
+    }
     set((s) => ({ brands: [brand, ...s.brands] }))
     return brand
   },

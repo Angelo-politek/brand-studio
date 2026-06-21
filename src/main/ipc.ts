@@ -12,6 +12,7 @@ import type {
   ExportListQuery,
   ExportSaveInput,
   OpenFileDialogOptions,
+  SaveFileDialogOptions,
   PlannerCreateInput,
   ProjectCreateInput,
   TemplateCreateInput,
@@ -149,6 +150,26 @@ export function registerIpc(): void {
     // Remember these so a subsequent appReadFile on them is authorized.
     for (const p of result.filePaths) dialogAllowedPaths.add(normalizePath(p))
     return result.filePaths
+  })
+
+  ipcMain.handle(IPC.appSaveFileDialog, async (e, opts?: SaveFileDialogOptions) => {
+    const win = BrowserWindow.fromWebContents(e.sender) ?? undefined
+    const result = await dialog.showSaveDialog(win!, {
+      defaultPath: opts?.defaultPath,
+      filters: opts?.filters
+    })
+    if (result.canceled || !result.filePath) return null
+    // Authorize a subsequent writeFileTo to exactly this path.
+    dialogAllowedPaths.add(normalizePath(result.filePath))
+    return result.filePath
+  })
+
+  ipcMain.handle(IPC.appWriteFileTo, async (_e, absPath: string, bytes: Uint8Array) => {
+    // Only allow writing to a path the user just chose via the save dialog.
+    if (!dialogAllowedPaths.has(normalizePath(absPath))) {
+      throw new Error('Write not allowed for this path')
+    }
+    await writeFile(absPath, Buffer.from(bytes))
   })
 
   /* -------------------------------- brands ------------------------------ */

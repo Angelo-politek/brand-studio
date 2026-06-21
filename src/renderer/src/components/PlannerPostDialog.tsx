@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { X, Trash2 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { X, Trash2, ExternalLink } from 'lucide-react'
 import { usePlannerStore } from '@renderer/stores/plannerStore'
 import type { PlannerItem, PlannerStatus, Project } from '@shared/types'
 
@@ -15,6 +16,7 @@ interface Props {
 
 export default function PlannerPostDialog({ brandId, item, date, onClose }: Props): JSX.Element {
   const { create, update, remove } = usePlannerStore()
+  const navigate = useNavigate()
   const [projects, setProjects] = useState<Project[]>([])
   const [form, setForm] = useState({
     title: item?.title ?? '',
@@ -101,18 +103,29 @@ export default function PlannerPostDialog({ brandId, item, date, onClose }: Prop
               ))}
             </select>
           </div>
-          <select
-            className="input"
-            value={form.projectId}
-            onChange={(e) => setForm((f) => ({ ...f, projectId: e.target.value }))}
-          >
-            <option value="">Link a project (optional)…</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
+          <div className="flex gap-2">
+            <select
+              className="input flex-1"
+              value={form.projectId}
+              onChange={(e) => setForm((f) => ({ ...f, projectId: e.target.value }))}
+            >
+              <option value="">Link a project (optional)…</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            {form.projectId && (
+              <button
+                onClick={() => navigate(`/app/editor/${form.projectId}`)}
+                className="btn-surface text-sm shrink-0"
+                title="Open the linked design in the editor"
+              >
+                <ExternalLink size={14} /> Open
+              </button>
+            )}
+          </div>
           <textarea
             className="input min-h-[64px] resize-y"
             placeholder="Notes"

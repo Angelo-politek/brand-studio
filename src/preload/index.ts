@@ -16,6 +16,8 @@ const api: Api = {
     },
     saveBinary: (input) => ipcRenderer.invoke(IPC.appSaveBinary, input),
     openFileDialog: (opts) => ipcRenderer.invoke(IPC.appOpenFileDialog, opts),
+    saveFileDialog: (opts) => ipcRenderer.invoke(IPC.appSaveFileDialog, opts),
+    writeFileTo: (absPath, bytes) => ipcRenderer.invoke(IPC.appWriteFileTo, absPath, bytes),
     readFile: (absPath) => ipcRenderer.invoke(IPC.appReadFile, absPath),
     openPath: (relativePath) => ipcRenderer.invoke(IPC.appOpenPath, relativePath),
     showInFolder: (relativePath) => ipcRenderer.invoke(IPC.appShowInFolder, relativePath),

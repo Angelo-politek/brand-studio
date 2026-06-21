@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@renderer/lib/cn'
 import { useBrandStore, useCurrentBrand } from '@renderer/stores/brandStore'
+import BackendStatus from '@renderer/components/BackendStatus'
 
 const NAV = [
   { to: '/app/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -76,8 +77,9 @@ export default function Sidebar(): JSX.Element {
         ))}
       </nav>
 
-      <div className="px-4 py-3 border-t border-line text-[11px] text-ink-faint">
-        Offline · Local-only
+      <div className="px-4 py-3 border-t border-line space-y-1.5">
+        <BackendStatus />
+        <div className="text-[11px] text-ink-faint">Offline · Local-only</div>
       </div>
     </aside>
   )

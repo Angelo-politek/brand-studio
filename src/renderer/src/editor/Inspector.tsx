@@ -4,6 +4,7 @@ import { useEditorStoreApi, useIsVideoEditor } from './editorStoreContext'
 import { useVideoEditorStore } from '@renderer/stores/videoEditorStore'
 import { useCurrentBrand } from '@renderer/stores/brandStore'
 import { removeBackground, recolorToPalette, tintImage } from '@renderer/lib/python'
+import { usePythonStatus } from '@renderer/components/BackendStatus'
 import { toast } from '@renderer/stores/uiStore'
 import { makeImageThumbnail } from '@renderer/lib/thumbnail'
 import { mediaUrl } from '@shared/ipc'
@@ -145,6 +146,7 @@ export default function Inspector(): JSX.Element | null {
   const setSceneClip = useVideoEditorStore((s) => s.setSceneClip)
   const brandId = useStore((s) => s.brandId)
   const brand = useCurrentBrand()
+  const aiReady = usePythonStatus().status === 'ready'
   const [bgBusy, setBgBusy] = useState(false)
   const [matchBusy, setMatchBusy] = useState(false)
   const [tintBusy, setTintBusy] = useState(false)
@@ -753,7 +755,12 @@ export default function Inspector(): JSX.Element | null {
               <Crop size={14} /> Crop image
             </button>
 
-            <button onClick={removeBg} disabled={bgBusy} className="btn-surface w-full text-sm">
+            <button
+              onClick={removeBg}
+              disabled={bgBusy || !aiReady}
+              title={aiReady ? undefined : 'AI backend not ready'}
+              className="btn-surface w-full text-sm disabled:opacity-50"
+            >
               {bgBusy ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />}
               {bgBusy ? 'Removing…' : 'Remove background'}
             </button>
@@ -778,8 +785,9 @@ export default function Inspector(): JSX.Element | null {
               </Row>
               <button
                 onClick={applyTint}
-                disabled={tintBusy}
-                className="btn-surface w-full text-sm"
+                disabled={tintBusy || !aiReady}
+                title={aiReady ? undefined : 'AI backend not ready'}
+                className="btn-surface w-full text-sm disabled:opacity-50"
               >
                 {tintBusy ? <Loader2 size={14} className="animate-spin" /> : <Palette size={14} />}
                 {tintBusy ? 'Applying…' : 'Apply tint'}
@@ -815,8 +823,9 @@ export default function Inspector(): JSX.Element | null {
                 </p>
                 <button
                   onClick={matchPalette}
-                  disabled={matchBusy}
-                  className="btn-surface w-full text-sm"
+                  disabled={matchBusy || !aiReady}
+                  title={aiReady ? undefined : 'AI backend not ready'}
+                  className="btn-surface w-full text-sm disabled:opacity-50"
                 >
                   {matchBusy ? (
                     <Loader2 size={14} className="animate-spin" />

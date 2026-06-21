@@ -25,6 +25,8 @@ export const IPC = {
   appGetPythonStatus: 'app:getPythonStatus',
   appSaveBinary: 'app:saveBinary',
   appOpenFileDialog: 'app:openFileDialog',
+  appSaveFileDialog: 'app:saveFileDialog',
+  appWriteFileTo: 'app:writeFileTo',
   appReadFile: 'app:readFile',
   appOpenPath: 'app:openPath',
   appShowInFolder: 'app:showInFolder',
@@ -108,6 +110,11 @@ export interface SaveBinaryInput {
 export interface OpenFileDialogOptions {
   filters?: { name: string; extensions: string[] }[]
   multi?: boolean
+}
+
+export interface SaveFileDialogOptions {
+  defaultPath?: string
+  filters?: { name: string; extensions: string[] }[]
 }
 
 export interface AssetImportInput {
@@ -197,6 +204,8 @@ export interface Api {
     onPythonStatus(cb: (info: PythonStatusInfo) => void): () => void
     saveBinary(input: SaveBinaryInput): Promise<string>
     openFileDialog(opts?: OpenFileDialogOptions): Promise<string[]>
+    saveFileDialog(opts?: SaveFileDialogOptions): Promise<string | null>
+    writeFileTo(absPath: string, bytes: Uint8Array): Promise<void>
     readFile(absPath: string): Promise<Uint8Array>
     openPath(relativePath: string): Promise<void>
     showInFolder(relativePath: string): Promise<void>

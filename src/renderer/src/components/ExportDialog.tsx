@@ -3,20 +3,33 @@ import { X, Loader2, FolderOpen, ExternalLink } from 'lucide-react'
 import { cn } from '@renderer/lib/cn'
 import { useEditorStore } from '@renderer/stores/editorStore'
 import { getStage } from '@renderer/editor/stageRef'
-import { exportArtboard, type ExportFmt } from '@renderer/editor/exportArtboard'
+import {
+  exportArtboard,
+  artboardBytes,
+  pagesToPdf,
+  saveBytesAs,
+  sanitize,
+  type ExportFmt
+} from '@renderer/editor/exportArtboard'
+import { toast } from '@renderer/stores/uiStore'
 import type { ExportRecord } from '@shared/types'
 
 const FORMATS: ExportFmt[] = ['png', 'jpg', 'webp', 'pdf']
 const SCALES = [1, 2, 3]
 
+const nextFrame = (): Promise<void> =>
+  new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())))
+
 export default function ExportDialog({ onClose }: { onClose: () => void }): JSX.Element {
-  const { canvas, name, projectId, brandId } = useEditorStore()
+  const { canvas, name, projectId, brandId, pages } = useEditorStore()
   const [format, setFormat] = useState<ExportFmt>('png')
   const [scale, setScale] = useState(2)
+  const [allPages, setAllPages] = useState(false)
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState<ExportRecord | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  const multiPage = pages.length > 1
   const outW = Math.round(canvas.width * (format === 'pdf' ? 1 : scale))
   const outH = Math.round(canvas.height * (format === 'pdf' ? 1 : scale))
 
@@ -39,6 +52,67 @@ export default function ExportDialog({ onClose }: { onClose: () => void }): JSX.
         brandId
       })
       setDone(record)
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // Capture every page by switching the active page and re-rendering between
+  // captures. Restores the originally active page when done.
+  async function captureAllPages(): Promise<
+    { bytes: Uint8Array; width: number; height: number }[]
+  > {
+    const store = useEditorStore.getState()
+    const original = store.activePageId
+    const out: { bytes: Uint8Array; width: number; height: number }[] = []
+    try {
+      for (const pg of store.pages) {
+        store.setActivePage(pg.id)
+        await nextFrame()
+        const stage = getStage()
+        if (!stage) continue
+        const png = await artboardBytes(stage, pg.canvas, 'png', format === 'pdf' ? 1 : scale)
+        out.push({ bytes: png, width: pg.canvas.width, height: pg.canvas.height })
+      }
+    } finally {
+      store.setActivePage(original)
+      await nextFrame()
+    }
+    return out
+  }
+
+  async function saveAs(): Promise<void> {
+    const stage = getStage()
+    if (!stage) {
+      setError('Canvas not ready.')
+      return
+    }
+    setBusy(true)
+    setError(null)
+    try {
+      if (allPages && multiPage) {
+        const captured = await captureAllPages()
+        if (format === 'pdf') {
+          const pdf = await pagesToPdf(captured)
+          const saved = await saveBytesAs(pdf, `${name}-all`, 'pdf')
+          if (saved) toast(`Exported ${captured.length} pages to PDF.`, 'success')
+        } else {
+          // One file per page, each via its own save dialog.
+          let n = 0
+          for (let i = 0; i < captured.length; i++) {
+            const ok = await saveBytesAs(captured[i].bytes, `${sanitize(name)}-${i + 1}`, format)
+            if (ok) n++
+          }
+          if (n) toast(`Saved ${n} page(s).`, 'success')
+        }
+      } else {
+        const bytes = await artboardBytes(stage, canvas, format, format === 'pdf' ? 1 : scale)
+        const saved = await saveBytesAs(bytes, name, format)
+        if (saved) toast('Saved.', 'success')
+      }
+      onClose()
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -122,12 +196,30 @@ export default function ExportDialog({ onClose }: { onClose: () => void }): JSX.
               Output: {outW}×{outH}px
             </p>
 
+            {multiPage && (
+              <label className="flex items-center gap-2 text-xs text-ink-muted cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={allPages}
+                  onChange={(e) => setAllPages(e.target.checked)}
+                />
+                Export all {pages.length} pages
+                {allPages && format === 'pdf' ? ' (single PDF)' : ''}
+              </label>
+            )}
+
             {error && <p className="text-xs text-red-400">{error}</p>}
 
-            <button onClick={run} disabled={busy} className="btn-primary w-full">
-              {busy ? <Loader2 size={15} className="animate-spin" /> : null}
-              {busy ? 'Exporting…' : 'Export'}
-            </button>
+            <div className="flex gap-2">
+              <button onClick={run} disabled={busy} className="btn-surface flex-1">
+                {busy ? <Loader2 size={15} className="animate-spin" /> : null}
+                Export to library
+              </button>
+              <button onClick={saveAs} disabled={busy} className="btn-primary flex-1">
+                {busy ? <Loader2 size={15} className="animate-spin" /> : null}
+                Save as…
+              </button>
+            </div>
           </div>
         )}
       </div>

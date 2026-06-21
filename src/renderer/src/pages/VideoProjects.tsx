@@ -42,10 +42,15 @@ function NewReelDialog({
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-6" onClick={onClose}>
-      <div className="card w-full max-w-xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="card w-full max-w-xl max-h-[85vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between px-5 py-4 border-b border-line">
           <h2 className="font-semibold">New reel / video</h2>
-          <button onClick={onClose} className="btn-ghost px-1.5 py-1.5"><X size={16} /></button>
+          <button onClick={onClose} className="btn-ghost px-1.5 py-1.5">
+            <X size={16} />
+          </button>
         </div>
         <div className="p-5 space-y-5 overflow-y-auto">
           {/* Format */}
@@ -59,13 +64,21 @@ function NewReelDialog({
                   <button
                     key={p.type}
                     onClick={() => setSelected(p)}
-                    className={cn('card p-3 flex flex-col items-center gap-2 hover:border-accent/60', active && 'border-accent')}
+                    className={cn(
+                      'card p-3 flex flex-col items-center gap-2 hover:border-accent/60',
+                      active && 'border-accent'
+                    )}
                   >
                     <div className="h-14 grid place-items-center">
-                      <div className="bg-surface-3 border border-line rounded" style={{ width: 48 * ar, height: 48 }} />
+                      <div
+                        className="bg-surface-3 border border-line rounded"
+                        style={{ width: 48 * ar, height: 48 }}
+                      />
                     </div>
                     <div className="text-xs font-medium text-center">{p.label}</div>
-                    <div className="text-[10px] text-ink-faint">{p.width}×{p.height}</div>
+                    <div className="text-[10px] text-ink-faint">
+                      {p.width}×{p.height}
+                    </div>
                   </button>
                 )
               })}
@@ -82,7 +95,10 @@ function NewReelDialog({
                   <button
                     key={t.id}
                     onClick={() => setTemplateId(t.id)}
-                    className={cn('card p-3 text-left hover:border-accent/60', active && 'border-accent')}
+                    className={cn(
+                      'card p-3 text-left hover:border-accent/60',
+                      active && 'border-accent'
+                    )}
                   >
                     <div className="text-sm font-medium">{t.name}</div>
                     <div className="text-[11px] text-ink-faint mt-0.5">{t.description}</div>
@@ -98,8 +114,12 @@ function NewReelDialog({
           </div>
         </div>
         <div className="flex justify-end gap-2 px-5 py-4 border-t border-line">
-          <button onClick={onClose} className="btn-ghost text-sm">Cancel</button>
-          <button onClick={submit} className="btn-primary text-sm">Create</button>
+          <button onClick={onClose} className="btn-ghost text-sm">
+            Cancel
+          </button>
+          <button onClick={submit} className="btn-primary text-sm">
+            Create
+          </button>
         </div>
       </div>
     </div>
@@ -121,9 +141,20 @@ export default function VideoProjects(): JSX.Element {
     void refresh()
   }, [refresh])
 
-  async function handleCreate(input: { name: string; width: number; height: number; scenes: VideoScene[] }): Promise<void> {
+  async function handleCreate(input: {
+    name: string
+    width: number
+    height: number
+    scenes: VideoScene[]
+  }): Promise<void> {
     setDialogOpen(false)
-    const vp = await create({ brandId, name: input.name, width: input.width, height: input.height, scenes: input.scenes })
+    const vp = await create({
+      brandId,
+      name: input.name,
+      width: input.width,
+      height: input.height,
+      scenes: input.scenes
+    })
     navigate(`/app/video/${vp.id}`)
   }
 
@@ -169,7 +200,11 @@ export default function VideoProjects(): JSX.Element {
                 >
                   <div className="aspect-video bg-surface-2 grid place-items-center overflow-hidden relative">
                     {vp.thumbPath ? (
-                      <img src={mediaUrl(vp.thumbPath)} alt="" className="w-full h-full object-cover" />
+                      <img
+                        src={mediaUrl(vp.thumbPath)}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
                     ) : (
                       <Clapperboard size={32} className="text-ink-faint" />
                     )}
@@ -186,7 +221,8 @@ export default function VideoProjects(): JSX.Element {
                   <div className="px-3 py-2">
                     <div className="truncate text-sm font-medium">{vp.name}</div>
                     <div className="text-[11px] text-ink-faint">
-                      {vp.width}×{vp.height} · {(vp.scenes ?? []).length} scene{(vp.scenes ?? []).length === 1 ? '' : 's'}
+                      {vp.width}×{vp.height} · {(vp.scenes ?? []).length} scene
+                      {(vp.scenes ?? []).length === 1 ? '' : 's'}
                     </div>
                   </div>
                 </div>
@@ -196,7 +232,12 @@ export default function VideoProjects(): JSX.Element {
         )}
       </div>
 
-      {dialogOpen && <NewReelDialog onClose={() => setDialogOpen(false)} onCreate={(i) => void handleCreate(i)} />}
+      {dialogOpen && (
+        <NewReelDialog
+          onClose={() => setDialogOpen(false)}
+          onCreate={(i) => void handleCreate(i)}
+        />
+      )}
     </div>
   )
 }

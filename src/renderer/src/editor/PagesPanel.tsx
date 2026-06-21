@@ -33,7 +33,10 @@ export default function PagesPanel(): JSX.Element {
               {/* Context actions on hover */}
               <div className="absolute top-0 right-0 hidden group-hover:flex gap-0.5 bg-black/50 rounded-bl p-0.5">
                 <button
-                  onClick={(e) => { e.stopPropagation(); duplicatePage(page.id) }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    duplicatePage(page.id)
+                  }}
                   className="text-white hover:text-accent"
                   title="Duplicate page"
                 >
@@ -41,7 +44,10 @@ export default function PagesPanel(): JSX.Element {
                 </button>
                 {pages.length > 1 && (
                   <button
-                    onClick={(e) => { e.stopPropagation(); deletePage(page.id) }}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      deletePage(page.id)
+                    }}
                     className="text-white hover:text-red-400"
                     title="Delete page"
                   >
@@ -56,7 +62,10 @@ export default function PagesPanel(): JSX.Element {
                 autoFocus
                 className="text-[10px] w-14 text-center bg-surface-2 border border-accent rounded px-1 py-0 outline-none"
                 defaultValue={page.name}
-                onBlur={(e) => { renamePage(page.id, e.target.value || `Page ${i + 1}`); setEditingId(null) }}
+                onBlur={(e) => {
+                  renamePage(page.id, e.target.value || `Page ${i + 1}`)
+                  setEditingId(null)
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
                   if (e.key === 'Escape') setEditingId(null)

@@ -36,7 +36,11 @@ export async function removeBackground(
   if (!root) return null
   const form = new FormData()
   form.append('file', new Blob([bytes as BlobPart]), filename)
-  const res = await fetch(`${root}/bg-remove`, { method: 'POST', headers: authHeaders(), body: form })
+  const res = await fetch(`${root}/bg-remove`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: form
+  })
   if (!res.ok) throw new Error(`bg-remove failed: ${res.status}`)
   return new Uint8Array(await res.arrayBuffer())
 }
@@ -52,7 +56,11 @@ export async function recolorToPalette(
   const form = new FormData()
   form.append('file', new Blob([bytes as BlobPart], { type: 'image/png' }), filename)
   form.append('colors', colors.join(','))
-  const res = await fetch(`${root}/image/recolor`, { method: 'POST', headers: authHeaders(), body: form })
+  const res = await fetch(`${root}/image/recolor`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: form
+  })
   if (!res.ok) throw new Error(`recolor failed: ${res.status}`)
   return new Uint8Array(await res.arrayBuffer())
 }
@@ -75,7 +83,11 @@ export async function tintImage(
   form.append('color', color)
   form.append('intensity', String(intensity))
   form.append('mode', mode)
-  const res = await fetch(`${root}/image/tint`, { method: 'POST', headers: authHeaders(), body: form })
+  const res = await fetch(`${root}/image/tint`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: form
+  })
   if (!res.ok) throw new Error(`tint failed: ${res.status}`)
   return new Uint8Array(await res.arrayBuffer())
 }
@@ -142,13 +154,25 @@ export async function exportVideo(params: VideoExportParams): Promise<string | n
     const seq = params.frames?.[i]
     if (seq && seq.length > 0) {
       seq.forEach((f, j) => {
-        form.append(`frames_${i}_${j}`, new Blob([f as BlobPart], { type: 'image/png' }), `f_${j}.png`)
+        form.append(
+          `frames_${i}_${j}`,
+          new Blob([f as BlobPart], { type: 'image/png' }),
+          `f_${j}.png`
+        )
       })
     } else if (bytes && bytes.byteLength > 0) {
-      form.append(`overlay_${i}`, new Blob([bytes as BlobPart], { type: 'image/png' }), `overlay_${i}.png`)
+      form.append(
+        `overlay_${i}`,
+        new Blob([bytes as BlobPart], { type: 'image/png' }),
+        `overlay_${i}.png`
+      )
     }
   })
-  const res = await fetch(`${root}/video/export`, { method: 'POST', headers: authHeaders(), body: form })
+  const res = await fetch(`${root}/video/export`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: form
+  })
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText)
     throw new Error(`video export failed: ${text}`)
@@ -168,7 +192,11 @@ export async function extractPalette(
   const form = new FormData()
   form.append('file', new Blob([bytes as BlobPart]), filename)
   form.append('k', String(k))
-  const res = await fetch(`${root}/image/palette`, { method: 'POST', headers: authHeaders(), body: form })
+  const res = await fetch(`${root}/image/palette`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: form
+  })
   if (!res.ok) return []
   const data = (await res.json()) as { colors: PaletteColor[] }
   return data.colors

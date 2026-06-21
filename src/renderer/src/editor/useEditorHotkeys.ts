@@ -38,8 +38,14 @@ export function useEditorHotkeys(): void {
 
   useHotkeys('escape', () => useEditorStore.getState().select(null))
 
-  useHotkeys('mod+0', (e) => { e.preventDefault(); callFit() })
-  useHotkeys('mod+1', (e) => { e.preventDefault(); useEditorStore.getState().setZoom(1) })
+  useHotkeys('mod+0', (e) => {
+    e.preventDefault()
+    callFit()
+  })
+  useHotkeys('mod+1', (e) => {
+    e.preventDefault()
+    useEditorStore.getState().setZoom(1)
+  })
 
   useHotkeys(['up', 'down', 'left', 'right'], (e) => {
     const s = useEditorStore.getState()

@@ -36,7 +36,9 @@ export default function StartupBrands(): JSX.Element {
   }
 
   async function del(brand: Brand): Promise<void> {
-    if (await confirmDialog(`Delete brand "${brand.name}" and all its data? This cannot be undone.`)) {
+    if (
+      await confirmDialog(`Delete brand "${brand.name}" and all its data? This cannot be undone.`)
+    ) {
       await remove(brand.id)
     }
   }
@@ -129,10 +131,7 @@ export default function StartupBrands(): JSX.Element {
                   <button onClick={submitCreate} className="btn-primary flex-1 text-xs py-1.5">
                     Create
                   </button>
-                  <button
-                    onClick={() => setCreating(false)}
-                    className="btn-ghost text-xs py-1.5"
-                  >
+                  <button onClick={() => setCreating(false)} className="btn-ghost text-xs py-1.5">
                     Cancel
                   </button>
                 </div>

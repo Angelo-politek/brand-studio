@@ -101,7 +101,14 @@ export default function CropOverlay({ layer }: { layer: Layer }): JSX.Element | 
         clipHeight={rect.height}
         listening={false}
       >
-        <KonvaImage image={img} x={layer.x} y={layer.y} width={boxW} height={boxH} listening={false} />
+        <KonvaImage
+          image={img}
+          x={layer.x}
+          y={layer.y}
+          width={boxW}
+          height={boxH}
+          listening={false}
+        />
       </Group>
       {/* Draggable / resizable crop rectangle. */}
       <Rect
@@ -142,9 +149,7 @@ export default function CropOverlay({ layer }: { layer: Layer }): JSX.Element | 
         anchorFill="#0b0d12"
         borderStroke="#3b82f6"
         anchorSize={9}
-        boundBoxFunc={(oldBox, newBox) =>
-          newBox.width < 8 || newBox.height < 8 ? oldBox : newBox
-        }
+        boundBoxFunc={(oldBox, newBox) => (newBox.width < 8 || newBox.height < 8 ? oldBox : newBox)}
       />
     </Group>
   )

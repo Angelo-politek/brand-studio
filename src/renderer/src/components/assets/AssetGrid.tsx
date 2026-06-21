@@ -14,10 +14,18 @@ function chunk<T>(arr: T[], size: number): T[][] {
 
 function AssetThumb({ asset }: { asset: Asset }): JSX.Element {
   if (asset.thumbPath) {
-    return <img src={mediaUrl(asset.thumbPath)} alt="" className="max-h-full max-w-full object-contain" />
+    return (
+      <img
+        src={mediaUrl(asset.thumbPath)}
+        alt=""
+        className="max-h-full max-w-full object-contain"
+      />
+    )
   }
   if (isImageMime(asset.mime)) {
-    return <img src={mediaUrl(asset.filePath)} alt="" className="max-h-full max-w-full object-contain" />
+    return (
+      <img src={mediaUrl(asset.filePath)} alt="" className="max-h-full max-w-full object-contain" />
+    )
   }
   const Icon = isVideoMime(asset.mime)
     ? Film

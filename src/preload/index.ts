@@ -10,8 +10,7 @@ const api: Api = {
     getPythonInfo: () => ipcRenderer.invoke(IPC.appGetPythonInfo),
     getPythonStatus: () => ipcRenderer.invoke(IPC.appGetPythonStatus),
     onPythonStatus: (cb) => {
-      const handler = (_e: unknown, info: unknown): void =>
-        cb(info as Parameters<typeof cb>[0])
+      const handler = (_e: unknown, info: unknown): void => cb(info as Parameters<typeof cb>[0])
       ipcRenderer.on('python:status', handler)
       return () => ipcRenderer.removeListener('python:status', handler)
     },

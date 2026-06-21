@@ -3,9 +3,23 @@ import { useNavigate } from 'react-router-dom'
 import { useStore } from 'zustand'
 import { useShallow } from 'zustand/react/shallow'
 import {
-  ArrowLeft, Undo2, Redo2, Grid3x3, SquareDashed, Download, Check, LayoutTemplate, Maximize2,
-  AlignLeft, AlignCenter, AlignRight, AlignStartVertical, AlignCenterVertical, AlignEndVertical,
-  AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter
+  ArrowLeft,
+  Undo2,
+  Redo2,
+  Grid3x3,
+  SquareDashed,
+  Download,
+  Check,
+  LayoutTemplate,
+  Maximize2,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignStartVertical,
+  AlignCenterVertical,
+  AlignEndVertical,
+  AlignHorizontalDistributeCenter,
+  AlignVerticalDistributeCenter
 } from 'lucide-react'
 import { callFit } from './fitRef'
 import { useEditorStore } from '@renderer/stores/editorStore'
@@ -22,7 +36,12 @@ interface Props {
   onResize?: () => void
 }
 
-function SelectionInfo({ layer, layers, selectedIds, updateLayer }: {
+function SelectionInfo({
+  layer,
+  layers,
+  selectedIds,
+  updateLayer
+}: {
   layer: Layer | null
   layers: Layer[]
   selectedIds: string[]
@@ -33,38 +52,48 @@ function SelectionInfo({ layer, layers, selectedIds, updateLayer }: {
   const y = layer ? Math.round(layer.y) : Math.round(Math.min(...sel.map((l) => l.y)))
   const w = layer
     ? Math.round(layer.width * layer.scaleX)
-    : Math.round(Math.max(...sel.map((l) => l.x + l.width * l.scaleX)) - Math.min(...sel.map((l) => l.x)))
+    : Math.round(
+        Math.max(...sel.map((l) => l.x + l.width * l.scaleX)) - Math.min(...sel.map((l) => l.x))
+      )
   const h = layer
     ? Math.round(layer.height * layer.scaleY)
-    : Math.round(Math.max(...sel.map((l) => l.y + l.height * l.scaleY)) - Math.min(...sel.map((l) => l.y)))
+    : Math.round(
+        Math.max(...sel.map((l) => l.y + l.height * l.scaleY)) - Math.min(...sel.map((l) => l.y))
+      )
 
   function handle(field: string, val: number): void {
     if (!layer) return
     if (field === 'x') updateLayer(layer.id, { x: val })
     else if (field === 'y') updateLayer(layer.id, { y: val })
     else if (field === 'w' && layer.width > 0) updateLayer(layer.id, { scaleX: val / layer.width })
-    else if (field === 'h' && layer.height > 0) updateLayer(layer.id, { scaleY: val / layer.height })
+    else if (field === 'h' && layer.height > 0)
+      updateLayer(layer.id, { scaleY: val / layer.height })
   }
 
   return (
     <div className="flex items-center gap-1 border-l border-line pl-2 ml-1">
-      {([['X', 'x', x], ['Y', 'y', y], ['W', 'w', w], ['H', 'h', h]] as [string, string, number][]).map(
-        ([lbl, key, val]) => (
-          <label key={key} className="flex items-center gap-0.5">
-            <span className="text-[10px] text-ink-faint">{lbl}</span>
-            <input
-              type="number"
-              value={val}
-              readOnly={!layer}
-              onChange={layer ? (e) => handle(key, Number(e.target.value)) : undefined}
-              className={cn(
-                'w-14 rounded px-1 py-0.5 text-xs text-center focus:outline-none focus:ring-1 focus:ring-accent/40',
-                layer ? 'bg-surface-2 text-ink' : 'bg-surface-2/50 text-ink-faint cursor-default'
-              )}
-            />
-          </label>
-        )
-      )}
+      {(
+        [
+          ['X', 'x', x],
+          ['Y', 'y', y],
+          ['W', 'w', w],
+          ['H', 'h', h]
+        ] as [string, string, number][]
+      ).map(([lbl, key, val]) => (
+        <label key={key} className="flex items-center gap-0.5">
+          <span className="text-[10px] text-ink-faint">{lbl}</span>
+          <input
+            type="number"
+            value={val}
+            readOnly={!layer}
+            onChange={layer ? (e) => handle(key, Number(e.target.value)) : undefined}
+            className={cn(
+              'w-14 rounded px-1 py-0.5 text-xs text-center focus:outline-none focus:ring-1 focus:ring-accent/40',
+              layer ? 'bg-surface-2 text-ink' : 'bg-surface-2/50 text-ink-faint cursor-default'
+            )}
+          />
+        </label>
+      ))}
     </div>
   )
 }
@@ -112,7 +141,10 @@ function ZoomControl(): JSX.Element {
         value=""
         onChange={(e) => {
           const v = e.target.value
-          if (v === 'fit') { callFit(); return }
+          if (v === 'fit') {
+            callFit()
+            return
+          }
           setZoom(Number(v) / 100)
         }}
         className="absolute right-0 opacity-0 w-4 h-full cursor-pointer"
@@ -120,7 +152,11 @@ function ZoomControl(): JSX.Element {
       >
         <option value="">—</option>
         <option value="fit">Fit to screen</option>
-        {PRESETS.map((p) => <option key={p} value={p}>{p}%</option>)}
+        {PRESETS.map((p) => (
+          <option key={p} value={p}>
+            {p}%
+          </option>
+        ))}
       </select>
     </div>
   )
@@ -128,8 +164,21 @@ function ZoomControl(): JSX.Element {
 
 export default function EditorTopBar({ saving, onExport, onResize }: Props): JSX.Element {
   const navigate = useNavigate()
-  const { name, setName, showGrid, showSafe, toggleGrid, toggleSafe, selectedIds, layers, updateLayer, alignSelected, distributeSelected } = useEditorStore()
-  const layer = selectedIds.length === 1 ? layers.find((l) => l.id === selectedIds[0]) ?? null : null
+  const {
+    name,
+    setName,
+    showGrid,
+    showSafe,
+    toggleGrid,
+    toggleSafe,
+    selectedIds,
+    layers,
+    updateLayer,
+    alignSelected,
+    distributeSelected
+  } = useEditorStore()
+  const layer =
+    selectedIds.length === 1 ? (layers.find((l) => l.id === selectedIds[0]) ?? null) : null
   const { canUndo, canRedo } = useStore(
     useEditorStore.temporal,
     useShallow((s) => ({ canUndo: s.pastStates.length > 0, canRedo: s.futureStates.length > 0 }))
@@ -213,16 +262,64 @@ export default function EditorTopBar({ saving, onExport, onResize }: Props): JSX
       {/* Alignment toolbar — visible when ≥1 layer selected */}
       {selectedIds.length >= 1 && (
         <div className="flex items-center gap-0.5 border-l border-line pl-2 ml-1">
-          <button onClick={() => alignSelected('left')} className="btn-ghost px-1.5 py-1.5" title="Align left"><AlignLeft size={15} /></button>
-          <button onClick={() => alignSelected('centerX')} className="btn-ghost px-1.5 py-1.5" title="Align center X"><AlignCenter size={15} /></button>
-          <button onClick={() => alignSelected('right')} className="btn-ghost px-1.5 py-1.5" title="Align right"><AlignRight size={15} /></button>
-          <button onClick={() => alignSelected('top')} className="btn-ghost px-1.5 py-1.5" title="Align top"><AlignStartVertical size={15} /></button>
-          <button onClick={() => alignSelected('centerY')} className="btn-ghost px-1.5 py-1.5" title="Align center Y"><AlignCenterVertical size={15} /></button>
-          <button onClick={() => alignSelected('bottom')} className="btn-ghost px-1.5 py-1.5" title="Align bottom"><AlignEndVertical size={15} /></button>
+          <button
+            onClick={() => alignSelected('left')}
+            className="btn-ghost px-1.5 py-1.5"
+            title="Align left"
+          >
+            <AlignLeft size={15} />
+          </button>
+          <button
+            onClick={() => alignSelected('centerX')}
+            className="btn-ghost px-1.5 py-1.5"
+            title="Align center X"
+          >
+            <AlignCenter size={15} />
+          </button>
+          <button
+            onClick={() => alignSelected('right')}
+            className="btn-ghost px-1.5 py-1.5"
+            title="Align right"
+          >
+            <AlignRight size={15} />
+          </button>
+          <button
+            onClick={() => alignSelected('top')}
+            className="btn-ghost px-1.5 py-1.5"
+            title="Align top"
+          >
+            <AlignStartVertical size={15} />
+          </button>
+          <button
+            onClick={() => alignSelected('centerY')}
+            className="btn-ghost px-1.5 py-1.5"
+            title="Align center Y"
+          >
+            <AlignCenterVertical size={15} />
+          </button>
+          <button
+            onClick={() => alignSelected('bottom')}
+            className="btn-ghost px-1.5 py-1.5"
+            title="Align bottom"
+          >
+            <AlignEndVertical size={15} />
+          </button>
           {selectedIds.length >= 3 && (
             <>
-              <button onClick={() => distributeSelected('horizontal')} className="btn-ghost px-1.5 py-1.5" title="Distribute horizontally"><AlignHorizontalDistributeCenter size={15} /></button>
-              <button onClick={() => distributeSelected('vertical')} className="btn-ghost px-1.5 py-1.5" title="Distribute vertically"><AlignVerticalDistributeCenter size={15} /></button>
+              <button
+                onClick={() => distributeSelected('horizontal')}
+                className="btn-ghost px-1.5 py-1.5"
+                title="Distribute horizontally"
+              >
+                <AlignHorizontalDistributeCenter size={15} />
+              </button>
+              <button
+                onClick={() => distributeSelected('vertical')}
+                className="btn-ghost px-1.5 py-1.5"
+                title="Distribute vertically"
+              >
+                <AlignVerticalDistributeCenter size={15} />
+              </button>
             </>
           )}
         </div>
@@ -230,7 +327,12 @@ export default function EditorTopBar({ saving, onExport, onResize }: Props): JSX
 
       {/* Selection W/H/X/Y info */}
       {selectedIds.length >= 1 && (
-        <SelectionInfo layer={layer} layers={layers} selectedIds={selectedIds} updateLayer={updateLayer} />
+        <SelectionInfo
+          layer={layer}
+          layers={layers}
+          selectedIds={selectedIds}
+          updateLayer={updateLayer}
+        />
       )}
 
       <button

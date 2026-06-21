@@ -39,7 +39,11 @@ export default function Exports(): JSX.Element {
                 <div key={r.id} className="card flex items-center gap-4 p-3">
                   <div className="h-14 w-14 shrink-0 rounded-md checkerboard grid place-items-center overflow-hidden">
                     {isImg ? (
-                      <img src={mediaUrl(r.filePath)} alt="" className="max-h-full max-w-full object-contain" />
+                      <img
+                        src={mediaUrl(r.filePath)}
+                        alt=""
+                        className="max-h-full max-w-full object-contain"
+                      />
                     ) : (
                       <FileText size={22} className="text-ink-faint" />
                     )}

@@ -127,7 +127,10 @@ export async function renderSceneOverlayPng(
 /** True if any visible layer in the scene has an enter/exit animation. */
 export function sceneHasAnimation(scene: VideoScene): boolean {
   return scene.layers.some(
-    (l) => l.visible && l.anim && (l.anim.in && l.anim.in !== 'none' || l.anim.out && l.anim.out !== 'none')
+    (l) =>
+      l.visible &&
+      l.anim &&
+      ((l.anim.in && l.anim.in !== 'none') || (l.anim.out && l.anim.out !== 'none'))
   )
 }
 

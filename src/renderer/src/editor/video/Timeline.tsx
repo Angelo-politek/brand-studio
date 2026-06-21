@@ -28,9 +28,21 @@ export default function Timeline({
   onPickAudio: () => void
 }): JSX.Element {
   const {
-    scenes, activeSceneId, audio, playheadMs,
-    setActiveScene, addScene, deleteScene, duplicateScene, renameScene,
-    setSceneDuration, setSceneTransition, updateClip, setAudio, seekGlobal, setPlaying
+    scenes,
+    activeSceneId,
+    audio,
+    playheadMs,
+    setActiveScene,
+    addScene,
+    deleteScene,
+    duplicateScene,
+    renameScene,
+    setSceneDuration,
+    setSceneTransition,
+    updateClip,
+    setAudio,
+    seekGlobal,
+    setPlaying
   } = useVideoEditorStore()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [transitionFor, setTransitionFor] = useState<string | null>(null)
@@ -70,7 +82,9 @@ export default function Timeline({
   function onScrubStart(e: React.MouseEvent): void {
     setPlaying(false)
     scrubToX(e.clientX)
-    function onMove(ev: MouseEvent): void { scrubToX(ev.clientX) }
+    function onMove(ev: MouseEvent): void {
+      scrubToX(ev.clientX)
+    }
     function onUp(): void {
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
@@ -108,13 +122,25 @@ export default function Timeline({
         <span className="text-[11px] text-ink-faint">·</span>
         <span className="text-[11px] text-ink-faint">{fmt(totalMs)} total</span>
         <div className="ml-auto flex items-center gap-1.5">
-          <button onClick={() => addScene()} className="btn-surface text-xs px-2 py-1" title="Add blank scene">
+          <button
+            onClick={() => addScene()}
+            className="btn-surface text-xs px-2 py-1"
+            title="Add blank scene"
+          >
             <Plus size={13} /> Scene
           </button>
-          <button onClick={onPickVideo} className="btn-surface text-xs px-2 py-1" title="Add scene from a video clip">
+          <button
+            onClick={onPickVideo}
+            className="btn-surface text-xs px-2 py-1"
+            title="Add scene from a video clip"
+          >
             <Film size={13} /> Video
           </button>
-          <button onClick={onPickAudio} className="btn-surface text-xs px-2 py-1" title="Set background music">
+          <button
+            onClick={onPickAudio}
+            className="btn-surface text-xs px-2 py-1"
+            title="Set background music"
+          >
             <Music size={13} /> Music
           </button>
         </div>
@@ -162,7 +188,10 @@ export default function Timeline({
                         {TRANSITIONS.map((t) => (
                           <button
                             key={t.type}
-                            onClick={() => { setSceneTransition(scene.id, t.type); setTransitionFor(null) }}
+                            onClick={() => {
+                              setSceneTransition(scene.id, t.type)
+                              setTransitionFor(null)
+                            }}
                             className="w-full text-left px-3 py-1 text-xs hover:bg-surface-3"
                           >
                             {t.label}
@@ -197,7 +226,10 @@ export default function Timeline({
                     {/* Clip mute toggle */}
                     {scene.clip && (
                       <button
-                        onClick={(e) => { e.stopPropagation(); updateClip(scene.id, { muted: !scene.clip!.muted }) }}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          updateClip(scene.id, { muted: !scene.clip!.muted })
+                        }}
                         className="absolute top-0.5 right-0.5 text-white/80 hover:text-white bg-black/40 rounded p-0.5"
                         title={scene.clip.muted ? 'Unmute clip' : 'Mute clip'}
                       >
@@ -206,11 +238,25 @@ export default function Timeline({
                     )}
                     {/* Hover actions */}
                     <div className="absolute top-0 right-0 hidden group-hover:flex gap-0.5 bg-black/50 rounded-bl p-0.5">
-                      <button onClick={(e) => { e.stopPropagation(); duplicateScene(scene.id) }} className="text-white hover:text-accent" title="Duplicate">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          duplicateScene(scene.id)
+                        }}
+                        className="text-white hover:text-accent"
+                        title="Duplicate"
+                      >
                         <Copy size={10} />
                       </button>
                       {scenes.length > 1 && (
-                        <button onClick={(e) => { e.stopPropagation(); deleteScene(scene.id) }} className="text-white hover:text-red-400" title="Delete">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            deleteScene(scene.id)
+                          }}
+                          className="text-white hover:text-red-400"
+                          title="Delete"
+                        >
                           <Trash2 size={10} />
                         </button>
                       )}
@@ -229,7 +275,10 @@ export default function Timeline({
                         autoFocus
                         className="text-[10px] flex-1 min-w-0 bg-surface-2 border border-accent rounded px-1 outline-none"
                         defaultValue={scene.name}
-                        onBlur={(e) => { renameScene(scene.id, e.target.value || `Scene ${i + 1}`); setEditingId(null) }}
+                        onBlur={(e) => {
+                          renameScene(scene.id, e.target.value || `Scene ${i + 1}`)
+                          setEditingId(null)
+                        }}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
                           if (e.key === 'Escape') setEditingId(null)
@@ -239,7 +288,10 @@ export default function Timeline({
                       <button
                         onDoubleClick={() => setEditingId(scene.id)}
                         onClick={() => setActiveScene(scene.id)}
-                        className={cn('text-[10px] truncate flex-1 text-left', isActive ? 'text-ink font-medium' : 'text-ink-faint')}
+                        className={cn(
+                          'text-[10px] truncate flex-1 text-left',
+                          isActive ? 'text-ink font-medium' : 'text-ink-faint'
+                        )}
                         title="Double-click to rename"
                       >
                         {scene.name}
@@ -274,13 +326,20 @@ export default function Timeline({
               </span>
             </div>
             <input
-              type="range" min={0} max={1} step={0.05}
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
               value={audio.volume}
               onChange={(e) => setAudio({ ...audio, volume: Number(e.target.value) })}
               className="w-20 accent-orange-500"
               title="Music volume"
             />
-            <button onClick={() => setAudio(null)} className="text-ink-faint hover:text-red-400" title="Remove music">
+            <button
+              onClick={() => setAudio(null)}
+              className="text-ink-faint hover:text-red-400"
+              title="Remove music"
+            >
               <Trash2 size={12} />
             </button>
           </>

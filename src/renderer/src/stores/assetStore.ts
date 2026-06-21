@@ -30,7 +30,11 @@ interface AssetState {
   remove: (id: string) => Promise<void>
 }
 
-async function buildImport(item: ImportItem, target: FolderFilter, brandId: string): Promise<Asset> {
+async function buildImport(
+  item: ImportItem,
+  target: FolderFilter,
+  brandId: string
+): Promise<Asset> {
   const folder: AssetFolder = target === 'All' ? folderFromMime(item.mime) : target
   let width: number | null = null
   let height: number | null = null

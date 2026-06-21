@@ -52,14 +52,20 @@ export default function AssetPickerDialog({
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-6" onClick={onClose}>
-      <div className="card w-full max-w-2xl max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="card w-full max-w-2xl max-h-[80vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between px-5 py-4 border-b border-line">
           <h2 className="font-semibold">{title}</h2>
           <div className="flex items-center gap-2">
             <button onClick={upload} disabled={importing} className="btn-surface text-sm">
-              {importing ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />} Upload
+              {importing ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}{' '}
+              Upload
             </button>
-            <button onClick={onClose} className="btn-ghost px-1.5 py-1.5"><X size={16} /></button>
+            <button onClick={onClose} className="btn-ghost px-1.5 py-1.5">
+              <X size={16} />
+            </button>
           </div>
         </div>
 
@@ -86,9 +92,17 @@ export default function AssetPickerDialog({
                       ♪
                     </div>
                   ) : a.thumbPath ? (
-                    <img src={mediaUrl(a.thumbPath)} alt={a.name} className="h-16 w-full object-cover rounded" />
+                    <img
+                      src={mediaUrl(a.thumbPath)}
+                      alt={a.name}
+                      className="h-16 w-full object-cover rounded"
+                    />
                   ) : (
-                    <video src={mediaUrl(a.filePath)} className="h-16 w-full object-cover rounded" muted />
+                    <video
+                      src={mediaUrl(a.filePath)}
+                      className="h-16 w-full object-cover rounded"
+                      muted
+                    />
                   )}
                   <span className="text-[11px] truncate w-full text-center">{a.name}</span>
                 </button>

@@ -2,11 +2,11 @@ import { BrowserWindow } from 'electron'
 
 /** Lifecycle of the Python sidecar, surfaced to the renderer. */
 export type PythonStatus =
-  | 'idle'        // not started yet
-  | 'setting-up'  // creating venv / installing deps
-  | 'starting'    // spawned, waiting for health
-  | 'ready'       // healthy and serving
-  | 'down'        // crashed / failed to start
+  | 'idle' // not started yet
+  | 'setting-up' // creating venv / installing deps
+  | 'starting' // spawned, waiting for health
+  | 'ready' // healthy and serving
+  | 'down' // crashed / failed to start
   | 'unavailable' // no Python interpreter — server features disabled
 
 let current: PythonStatus = 'idle'

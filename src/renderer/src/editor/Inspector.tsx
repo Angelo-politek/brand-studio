@@ -153,9 +153,14 @@ export default function Inspector(): JSX.Element | null {
   const [tintColor, setTintColor] = useState('#f97316')
   const [tintIntensity, setTintIntensity] = useState(0.6)
   const [selectedPalette, setSelectedPalette] = useState<string[]>([])
-  const layer = selectedIds.length === 1 ? layers.find((l) => l.id === selectedIds[0]) ?? null : null
+  const layer =
+    selectedIds.length === 1 ? (layers.find((l) => l.id === selectedIds[0]) ?? null) : null
 
-  async function saveProcessedAsLayerSrc(out: Uint8Array, suffix: string, tag: string): Promise<void> {
+  async function saveProcessedAsLayerSrc(
+    out: Uint8Array,
+    suffix: string,
+    tag: string
+  ): Promise<void> {
     if (!layer || !brandId) return
     const blob = new Blob([out as BlobPart], { type: 'image/png' })
     const thumb = await makeImageThumbnail(blob)
@@ -204,7 +209,13 @@ export default function Inspector(): JSX.Element | null {
     setTintBusy(true)
     try {
       const srcBytes = new Uint8Array(await (await fetch(mediaUrl(layer.src))).arrayBuffer())
-      const out = await tintImage(srcBytes, `${layer.name}.png`, tintColor, tintIntensity, 'multiply')
+      const out = await tintImage(
+        srcBytes,
+        `${layer.name}.png`,
+        tintColor,
+        tintIntensity,
+        'multiply'
+      )
       if (!out) {
         toast('Tint unavailable (processing backend not ready).', 'error')
         return
@@ -338,7 +349,10 @@ export default function Inspector(): JSX.Element | null {
 
           <Row label="Volume">
             <input
-              type="range" min={0} max={1} step={0.05}
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
               value={c.muted ? 0 : c.volume}
               disabled={c.muted}
               onChange={(e) => setClip({ volume: Number(e.target.value) })}
@@ -368,12 +382,23 @@ export default function Inspector(): JSX.Element | null {
             <Num value={Math.round(c.y)} onChange={(v) => setClip({ y: v })} />
           </Row>
           <Row label="Size">
-            <Num value={Math.round(c.width)} min={1} onChange={(v) => setClip({ width: Math.max(1, v) })} />
-            <Num value={Math.round(c.height)} min={1} onChange={(v) => setClip({ height: Math.max(1, v) })} />
+            <Num
+              value={Math.round(c.width)}
+              min={1}
+              onChange={(v) => setClip({ width: Math.max(1, v) })}
+            />
+            <Num
+              value={Math.round(c.height)}
+              min={1}
+              onChange={(v) => setClip({ height: Math.max(1, v) })}
+            />
           </Row>
           <Row label="Opacity">
             <input
-              type="range" min={0} max={1} step={0.05}
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
               value={c.opacity}
               onChange={(e) => setClip({ opacity: Number(e.target.value) })}
               className="w-full"
@@ -421,9 +446,17 @@ export default function Inspector(): JSX.Element | null {
             </Row>
           ) : (
             <Row label="Size">
-              <Num value={canvas.width} min={1} onChange={(v) => setCanvas({ width: Math.max(1, v) })} />
+              <Num
+                value={canvas.width}
+                min={1}
+                onChange={(v) => setCanvas({ width: Math.max(1, v) })}
+              />
               <span className="text-ink-faint text-[11px]">×</span>
-              <Num value={canvas.height} min={1} onChange={(v) => setCanvas({ height: Math.max(1, v) })} />
+              <Num
+                value={canvas.height}
+                min={1}
+                onChange={(v) => setCanvas({ height: Math.max(1, v) })}
+              />
             </Row>
           )}
           <div className="pt-1 space-y-2">
@@ -500,21 +533,29 @@ export default function Inspector(): JSX.Element | null {
             </Row>
             <Row label="Align">
               <div className="flex gap-1">
-                {([['left', AlignLeft], ['center', AlignCenter], ['right', AlignRight]] as const).map(
-                  ([a, Icon]) => (
-                    <button
-                      key={a}
-                      onClick={() => set({ align: a })}
-                      className={`btn px-2 py-1.5 ${layer.align === a ? 'bg-surface-4 text-ink' : 'bg-surface-3 text-ink-muted'}`}
-                    >
-                      <Icon size={14} />
-                    </button>
-                  )
-                )}
+                {(
+                  [
+                    ['left', AlignLeft],
+                    ['center', AlignCenter],
+                    ['right', AlignRight]
+                  ] as const
+                ).map(([a, Icon]) => (
+                  <button
+                    key={a}
+                    onClick={() => set({ align: a })}
+                    className={`btn px-2 py-1.5 ${layer.align === a ? 'bg-surface-4 text-ink' : 'bg-surface-3 text-ink-muted'}`}
+                  >
+                    <Icon size={14} />
+                  </button>
+                ))}
               </div>
             </Row>
             <Row label="Spacing">
-              <Num value={layer.letterSpacing} step={0.5} onChange={(v) => set({ letterSpacing: v })} />
+              <Num
+                value={layer.letterSpacing}
+                step={0.5}
+                onChange={(v) => set({ letterSpacing: v })}
+              />
               <Num value={layer.lineHeight} step={0.1} onChange={(v) => set({ lineHeight: v })} />
             </Row>
             <Row label="Stroke">
@@ -539,7 +580,12 @@ export default function Inspector(): JSX.Element | null {
                     className="input text-xs"
                     value={layer.anim?.in ?? 'none'}
                     onChange={(e) =>
-                      set({ anim: { ...layer.anim, in: e.target.value as NonNullable<Layer['anim']>['in'] } })
+                      set({
+                        anim: {
+                          ...layer.anim,
+                          in: e.target.value as NonNullable<Layer['anim']>['in']
+                        }
+                      })
                     }
                   >
                     <option value="none">None</option>
@@ -553,7 +599,12 @@ export default function Inspector(): JSX.Element | null {
                     className="input text-xs"
                     value={layer.anim?.out ?? 'none'}
                     onChange={(e) =>
-                      set({ anim: { ...layer.anim, out: e.target.value as NonNullable<Layer['anim']>['out'] } })
+                      set({
+                        anim: {
+                          ...layer.anim,
+                          out: e.target.value as NonNullable<Layer['anim']>['out']
+                        }
+                      })
                     }
                   >
                     <option value="none">None</option>
@@ -584,7 +635,11 @@ export default function Inspector(): JSX.Element | null {
             </Row>
             {layer.type === 'rect' && (
               <Row label="Radius">
-                <Num value={layer.cornerRadius} min={0} onChange={(v) => set({ cornerRadius: v })} />
+                <Num
+                  value={layer.cornerRadius}
+                  min={0}
+                  onChange={(v) => set({ cornerRadius: v })}
+                />
               </Row>
             )}
             {layer.type === 'polygon' && (
@@ -649,7 +704,9 @@ export default function Inspector(): JSX.Element | null {
                 max={40}
                 step={1}
                 value={layer.filters?.blur ?? 0}
-                onChange={(e) => set({ filters: { ...layer.filters, blur: Number(e.target.value) } })}
+                onChange={(e) =>
+                  set({ filters: { ...layer.filters, blur: Number(e.target.value) } })
+                }
                 className="w-full"
               />
             </Row>
@@ -657,19 +714,23 @@ export default function Inspector(): JSX.Element | null {
               <input
                 type="checkbox"
                 checked={layer.filters?.grayscale ?? false}
-                onChange={(e) => set({ filters: { ...layer.filters, grayscale: e.target.checked } })}
+                onChange={(e) =>
+                  set({ filters: { ...layer.filters, grayscale: e.target.checked } })
+                }
               />
             </Row>
             <div>
               <div className="text-[11px] text-ink-faint mb-1">Crop</div>
               <div className="grid grid-cols-5 gap-1">
-                {([
-                  ['Orig', null],
-                  ['1:1', 1],
-                  ['4:5', 0.8],
-                  ['16:9', 16 / 9],
-                  ['9:16', 9 / 16]
-                ] as const).map(([label, a]) => (
+                {(
+                  [
+                    ['Orig', null],
+                    ['1:1', 1],
+                    ['4:5', 0.8],
+                    ['16:9', 16 / 9],
+                    ['9:16', 9 / 16]
+                  ] as const
+                ).map(([label, a]) => (
                   <button
                     key={label}
                     onClick={() => cropToAspect(a)}
@@ -688,11 +749,7 @@ export default function Inspector(): JSX.Element | null {
               <Crop size={14} /> Crop image
             </button>
 
-            <button
-              onClick={removeBg}
-              disabled={bgBusy}
-              className="btn-surface w-full text-sm"
-            >
+            <button onClick={removeBg} disabled={bgBusy} className="btn-surface w-full text-sm">
               {bgBusy ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />}
               {bgBusy ? 'Removing…' : 'Remove background'}
             </button>
@@ -715,7 +772,11 @@ export default function Inspector(): JSX.Element | null {
                   {Math.round(tintIntensity * 100)}%
                 </span>
               </Row>
-              <button onClick={applyTint} disabled={tintBusy} className="btn-surface w-full text-sm">
+              <button
+                onClick={applyTint}
+                disabled={tintBusy}
+                className="btn-surface w-full text-sm"
+              >
                 {tintBusy ? <Loader2 size={14} className="animate-spin" /> : <Palette size={14} />}
                 {tintBusy ? 'Applying…' : 'Apply tint'}
               </button>
@@ -753,7 +814,11 @@ export default function Inspector(): JSX.Element | null {
                   disabled={matchBusy}
                   className="btn-surface w-full text-sm"
                 >
-                  {matchBusy ? <Loader2 size={14} className="animate-spin" /> : <Palette size={14} />}
+                  {matchBusy ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <Palette size={14} />
+                  )}
                   {matchBusy ? 'Matching…' : 'Match palette'}
                 </button>
               </div>
@@ -764,7 +829,13 @@ export default function Inspector(): JSX.Element | null {
               <div className="flex items-center justify-between">
                 <span className="text-[11px] text-ink-faint font-medium">Color Overlay</span>
                 <button
-                  onClick={() => set({ colorOverlay: layer.colorOverlay ? null : { hex: '#000000', opacity: 0.3, blendMode: 'multiply' } })}
+                  onClick={() =>
+                    set({
+                      colorOverlay: layer.colorOverlay
+                        ? null
+                        : { hex: '#000000', opacity: 0.3, blendMode: 'multiply' }
+                    })
+                  }
                   className="text-[11px] text-ink-muted hover:text-accent"
                 >
                   {layer.colorOverlay ? 'Remove' : 'Add'}
@@ -783,16 +854,29 @@ export default function Inspector(): JSX.Element | null {
                       max={1}
                       step={0.05}
                       value={layer.colorOverlay.opacity}
-                      onChange={(e) => set({ colorOverlay: { ...layer.colorOverlay!, opacity: Number(e.target.value) } })}
+                      onChange={(e) =>
+                        set({
+                          colorOverlay: { ...layer.colorOverlay!, opacity: Number(e.target.value) }
+                        })
+                      }
                       className="w-full"
                     />
-                    <span className="text-[11px] text-ink-faint w-8 text-right">{Math.round(layer.colorOverlay.opacity * 100)}%</span>
+                    <span className="text-[11px] text-ink-faint w-8 text-right">
+                      {Math.round(layer.colorOverlay.opacity * 100)}%
+                    </span>
                   </Row>
                   <Row label="Blend">
                     <select
                       className="input text-xs"
                       value={layer.colorOverlay.blendMode}
-                      onChange={(e) => set({ colorOverlay: { ...layer.colorOverlay!, blendMode: e.target.value as 'multiply' | 'overlay' | 'color' } })}
+                      onChange={(e) =>
+                        set({
+                          colorOverlay: {
+                            ...layer.colorOverlay!,
+                            blendMode: e.target.value as 'multiply' | 'overlay' | 'color'
+                          }
+                        })
+                      }
                     >
                       <option value="multiply">Multiply</option>
                       <option value="overlay">Overlay</option>

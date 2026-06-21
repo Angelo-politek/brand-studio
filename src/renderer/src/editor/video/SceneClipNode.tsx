@@ -110,10 +110,14 @@ export default function SceneClipNode({
       const natW = clip.naturalWidth
       const natH = clip.naturalHeight
       const cur = clip.crop ?? { x: 0, y: 0, width: natW, height: natH }
-      const cropW = anchor === 'middle-left' || anchor === 'middle-right'
-        ? Math.min(natW, Math.max(1, cur.width * sx)) : cur.width
-      const cropH = anchor === 'top-center' || anchor === 'bottom-center'
-        ? Math.min(natH, Math.max(1, cur.height * sy)) : cur.height
+      const cropW =
+        anchor === 'middle-left' || anchor === 'middle-right'
+          ? Math.min(natW, Math.max(1, cur.width * sx))
+          : cur.width
+      const cropH =
+        anchor === 'top-center' || anchor === 'bottom-center'
+          ? Math.min(natH, Math.max(1, cur.height * sy))
+          : cur.height
       const cropX = anchor === 'middle-left' ? Math.max(0, cur.x + (cur.width - cropW)) : cur.x
       const cropY = anchor === 'top-center' ? Math.max(0, cur.y + (cur.height - cropH)) : cur.y
       patch.crop = { x: cropX, y: cropY, width: cropW, height: cropH }

@@ -14,12 +14,7 @@ export interface ReelTemplate {
   build: (width: number, height: number) => VideoScene[]
 }
 
-function textLayer(
-  text: string,
-  width: number,
-  height: number,
-  opts: Partial<Layer> = {}
-): Layer {
+function textLayer(text: string, width: number, height: number, opts: Partial<Layer> = {}): Layer {
   const boxW = width * 0.8
   return {
     id: uuid(),
@@ -85,8 +80,15 @@ export const REEL_TEMPLATES: ReelTemplate[] = [
     name: 'Before / After',
     description: 'Two scenes to show a transformation.',
     build: (w, h) => [
-      scene('Before', 3000, [textLayer('BEFORE', w, h, { anim: { in: 'fadeIn', durationMs: 350 } })], false),
-      scene('After', 3000, [textLayer('AFTER', w, h, { fill: '#22c55e', anim: { in: 'pop', durationMs: 450 } })])
+      scene(
+        'Before',
+        3000,
+        [textLayer('BEFORE', w, h, { anim: { in: 'fadeIn', durationMs: 350 } })],
+        false
+      ),
+      scene('After', 3000, [
+        textLayer('AFTER', w, h, { fill: '#22c55e', anim: { in: 'pop', durationMs: 450 } })
+      ])
     ]
   },
   {
@@ -94,12 +96,17 @@ export const REEL_TEMPLATES: ReelTemplate[] = [
     name: 'Quote reel',
     description: 'A single bold quote over your clip.',
     build: (w, h) => [
-      scene('Quote', 5000, [
-        textLayer('"Your bold quote here."', w, h, {
-          fontSize: Math.round(w * 0.09),
-          anim: { in: 'fadeIn', out: 'fadeOut', durationMs: 600 }
-        })
-      ], false)
+      scene(
+        'Quote',
+        5000,
+        [
+          textLayer('"Your bold quote here."', w, h, {
+            fontSize: Math.round(w * 0.09),
+            anim: { in: 'fadeIn', out: 'fadeOut', durationMs: 600 }
+          })
+        ],
+        false
+      )
     ]
   }
 ]

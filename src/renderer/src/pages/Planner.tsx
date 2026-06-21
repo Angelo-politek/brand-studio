@@ -50,7 +50,12 @@ export default function Planner(): JSX.Element {
 
   const label =
     view === 'day'
-      ? cursor.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+      ? cursor.toLocaleDateString(undefined, {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric'
+        })
       : `${MONTH_NAMES[cursor.getMonth()]} ${cursor.getFullYear()}`
 
   function Chip({ it }: { it: PlannerItem }): JSX.Element {
@@ -71,7 +76,12 @@ export default function Planner(): JSX.Element {
     )
   }
 
-  const days = view === 'month' ? monthGrid(cursor) : view === 'week' ? Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(cursor), i)) : [cursor]
+  const days =
+    view === 'month'
+      ? monthGrid(cursor)
+      : view === 'week'
+        ? Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(cursor), i))
+        : [cursor]
 
   return (
     <div className="h-full flex flex-col">

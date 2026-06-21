@@ -137,12 +137,16 @@ export default function Brands(): JSX.Element {
     if (oldFont?.filePath) void window.api.app.deleteFile(oldFont.filePath)
     const family = name.replace(/\.[^.]+$/, '')
     await registerFont(family, rel)
-    patch({ fonts: draft!.fonts.map((f) => (f.role === role ? { ...f, family, filePath: rel } : f)) })
+    patch({
+      fonts: draft!.fonts.map((f) => (f.role === role ? { ...f, family, filePath: rel } : f))
+    })
   }
 
   /* ------------------------------- presets ----------------------------- */
   function addPreset(): void {
-    patch({ presets: [...draft!.presets, { id: uuid(), name: 'New preset', format: 'png', scale: 1 }] })
+    patch({
+      presets: [...draft!.presets, { id: uuid(), name: 'New preset', format: 'png', scale: 1 }]
+    })
   }
   function updatePreset(id: string, p: Partial<ExportPreset>): void {
     patch({ presets: draft!.presets.map((x) => (x.id === id ? { ...x, ...p } : x)) })

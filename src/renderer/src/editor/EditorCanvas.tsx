@@ -14,7 +14,10 @@ import type { Layer as LayerModel } from '@shared/types'
 
 const SNAP_THRESHOLD = 8
 
-interface Guide { type: 'x' | 'y'; pos: number }
+interface Guide {
+  type: 'x' | 'y'
+  pos: number
+}
 
 function computeSnap(
   draggingId: string,
@@ -138,9 +141,13 @@ export default function EditorCanvas({
   const fittedRef = useRef(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [snapGuides, setSnapGuides] = useState<Guide[]>([])
-  const [contextMenu, setContextMenu] = useState<{ layerId: string; x: number; y: number } | null>(null)
+  const [contextMenu, setContextMenu] = useState<{ layerId: string; x: number; y: number } | null>(
+    null
+  )
   // Marquee (rubber-band) selection, in canvas coordinates.
-  const [marquee, setMarquee] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null)
+  const [marquee, setMarquee] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(
+    null
+  )
   const marqueeStart = useRef<{ x: number; y: number } | null>(null)
 
   const handleDragMove = useCallback(
@@ -157,7 +164,8 @@ export default function EditorCanvas({
   const handleDragEnd = useCallback(() => setSnapGuides([]), [])
 
   const editingLayer = layers.find((l) => l.id === editingId) ?? null
-  const cropLayer = (cropMode && layers.find((l) => l.id === cropMode && l.type === 'image')) || null
+  const cropLayer =
+    (cropMode && layers.find((l) => l.id === cropMode && l.type === 'image')) || null
 
   function fit(): void {
     const { w, h } = sizeRef.current
@@ -332,12 +340,26 @@ export default function EditorCanvas({
     const lines: JSX.Element[] = []
     for (let x = 0; x <= canvas.width; x += gridSize) {
       lines.push(
-        <Line key={`v${x}`} points={[x, 0, x, canvas.height]} stroke="#000000" strokeWidth={1} opacity={0.06} listening={false} />
+        <Line
+          key={`v${x}`}
+          points={[x, 0, x, canvas.height]}
+          stroke="#000000"
+          strokeWidth={1}
+          opacity={0.06}
+          listening={false}
+        />
       )
     }
     for (let y = 0; y <= canvas.height; y += gridSize) {
       lines.push(
-        <Line key={`h${y}`} points={[0, y, canvas.width, y]} stroke="#000000" strokeWidth={1} opacity={0.06} listening={false} />
+        <Line
+          key={`h${y}`}
+          points={[0, y, canvas.width, y]}
+          stroke="#000000"
+          strokeWidth={1}
+          opacity={0.06}
+          listening={false}
+        />
       )
     }
     return lines
@@ -348,9 +370,14 @@ export default function EditorCanvas({
 
   // Tailor which transform handles are shown to the selected layer's type.
   const ALL_ANCHORS = [
-    'top-left', 'top-center', 'top-right',
-    'middle-left', 'middle-right',
-    'bottom-left', 'bottom-center', 'bottom-right'
+    'top-left',
+    'top-center',
+    'top-right',
+    'middle-left',
+    'middle-right',
+    'bottom-left',
+    'bottom-center',
+    'bottom-right'
   ]
   const transformerAnchors = useMemo(() => {
     if (selectedIds.length !== 1) return ALL_ANCHORS
@@ -432,34 +459,29 @@ export default function EditorCanvas({
 
           {/* Clip layer content to the artboard so anything dragged/resized
               past the page edges stays hidden and the page border is clear. */}
-          <Group
-            clipX={0}
-            clipY={0}
-            clipWidth={canvas.width}
-            clipHeight={canvas.height}
-          >
+          <Group clipX={0} clipY={0} clipWidth={canvas.width} clipHeight={canvas.height}>
             {underlay}
             {layers.map((rawLayer) => {
               const layer = layerTransform ? layerTransform(rawLayer) : rawLayer
               return (
-              <LayerNode
-                key={layer.id}
-                layer={
-                  layer.id === editingId || layer.id === cropMode
-                    ? { ...layer, visible: false }
-                    : layer
-                }
-                ctx={{
-                  isSelected: selectedIds.includes(rawLayer.id),
-                  onSelect: (additive) =>
-                    additive ? toggleSelect(rawLayer.id) : select(rawLayer.id),
-                  onChange: (patch) => updateLayer(rawLayer.id, patch),
-                  snap: showGrid,
-                  gridSize,
-                  onDragMove: handleDragMove,
-                  onDragEnd: handleDragEnd
-                }}
-              />
+                <LayerNode
+                  key={layer.id}
+                  layer={
+                    layer.id === editingId || layer.id === cropMode
+                      ? { ...layer, visible: false }
+                      : layer
+                  }
+                  ctx={{
+                    isSelected: selectedIds.includes(rawLayer.id),
+                    onSelect: (additive) =>
+                      additive ? toggleSelect(rawLayer.id) : select(rawLayer.id),
+                    onChange: (patch) => updateLayer(rawLayer.id, patch),
+                    snap: showGrid,
+                    gridSize,
+                    onDragMove: handleDragMove,
+                    onDragEnd: handleDragEnd
+                  }}
+                />
               )
             })}
           </Group>

@@ -57,7 +57,9 @@ export default function NewProjectDialog({ initialType, onClose, onCreate }: Pro
                 }}
                 className={cn(
                   'px-3 py-1.5 rounded-md text-sm',
-                  category === c && !custom.on ? 'bg-surface-3 text-ink' : 'text-ink-muted hover:bg-surface-2'
+                  category === c && !custom.on
+                    ? 'bg-surface-3 text-ink'
+                    : 'text-ink-muted hover:bg-surface-2'
                 )}
               >
                 {c}

@@ -1,6 +1,15 @@
 import { useEffect, useRef } from 'react'
 import Konva from 'konva'
-import { Text, Rect, Image as KonvaImage, Group, Ellipse, RegularPolygon, Line, Arrow } from 'react-konva'
+import {
+  Text,
+  Rect,
+  Image as KonvaImage,
+  Group,
+  Ellipse,
+  RegularPolygon,
+  Line,
+  Arrow
+} from 'react-konva'
 import type { KonvaEventObject, Filter } from 'konva/lib/Node'
 import { mediaUrl } from '@shared/ipc'
 import { useImage } from '@renderer/lib/useImage'
@@ -72,11 +81,7 @@ const SIDE_ANCHORS = new Set(['middle-left', 'middle-right', 'top-center', 'bott
  * layer patch. Corner anchors resize; side anchors crop (images) or reflow
  * (text). Returns scaleX/scaleY = 1 so dimensions stay the source of truth.
  */
-function resolveTransform(
-  layer: Layer,
-  n: Konva.Node,
-  anchor: string | null
-): Partial<Layer> {
+function resolveTransform(layer: Layer, n: Konva.Node, anchor: string | null): Partial<Layer> {
   const sx = n.scaleX()
   const sy = n.scaleY()
   const base: Partial<Layer> = {
@@ -117,19 +122,17 @@ function resolveTransform(
     const cur = layer.crop ?? { x: 0, y: 0, width: natW, height: natH }
     // Scale the crop region by the same factor so the visible content is
     // revealed/clipped rather than scaled.
-    const cropW = anchor === 'middle-left' || anchor === 'middle-right'
-      ? Math.min(natW, Math.max(1, cur.width * sx))
-      : cur.width
-    const cropH = anchor === 'top-center' || anchor === 'bottom-center'
-      ? Math.min(natH, Math.max(1, cur.height * sy))
-      : cur.height
+    const cropW =
+      anchor === 'middle-left' || anchor === 'middle-right'
+        ? Math.min(natW, Math.max(1, cur.width * sx))
+        : cur.width
+    const cropH =
+      anchor === 'top-center' || anchor === 'bottom-center'
+        ? Math.min(natH, Math.max(1, cur.height * sy))
+        : cur.height
     // Anchor the crop so the opposite edge stays put.
-    const cropX = anchor === 'middle-left'
-      ? Math.max(0, cur.x + (cur.width - cropW))
-      : cur.x
-    const cropY = anchor === 'top-center'
-      ? Math.max(0, cur.y + (cur.height - cropH))
-      : cur.y
+    const cropX = anchor === 'middle-left' ? Math.max(0, cur.x + (cur.width - cropW)) : cur.x
+    const cropY = anchor === 'top-center' ? Math.max(0, cur.y + (cur.height - cropH)) : cur.y
     return {
       ...base,
       width: newW,
@@ -142,7 +145,13 @@ function resolveTransform(
   return { ...base, width: newW, height: newH }
 }
 
-function ImageNode({ layer, common }: { layer: Layer; common: Record<string, unknown> }): JSX.Element | null {
+function ImageNode({
+  layer,
+  common
+}: {
+  layer: Layer
+  common: Record<string, unknown>
+}): JSX.Element | null {
   const img = useImage(layer.src ? mediaUrl(layer.src) : undefined)
   const ref = useRef<Konva.Image>(null)
   const f = layer.filters ?? {}
@@ -167,8 +176,21 @@ function ImageNode({ layer, common }: { layer: Layer; common: Record<string, unk
 
   // Wrap image + optional color overlay in a Group so both share the same
   // transform (position, rotation, scale, opacity).
-  const { x, y, rotation, scaleX, scaleY, opacity, visible, draggable,
-    onMouseDown, onTap, onDragMove, onDragEnd, onTransformEnd } = common as Record<string, unknown>
+  const {
+    x,
+    y,
+    rotation,
+    scaleX,
+    scaleY,
+    opacity,
+    visible,
+    draggable,
+    onMouseDown,
+    onTap,
+    onDragMove,
+    onDragEnd,
+    onTransformEnd
+  } = common as Record<string, unknown>
 
   return (
     <Group

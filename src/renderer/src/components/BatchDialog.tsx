@@ -37,9 +37,7 @@ export default function BatchDialog({
       const cb = resolverRef.current
       resolverRef.current = null
       // Allow Konva to paint before capturing.
-      requestAnimationFrame(() =>
-        requestAnimationFrame(() => setTimeout(() => cb(stage), 120))
-      )
+      requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(() => cb(stage), 120)))
     }
   }
 
@@ -220,7 +218,9 @@ export default function BatchDialog({
         </div>
       </div>
 
-      {current && <BatchRenderer canvas={current.canvas} layers={current.layers} onStage={onStage} />}
+      {current && (
+        <BatchRenderer canvas={current.canvas} layers={current.layers} onStage={onStage} />
+      )}
     </div>
   )
 }

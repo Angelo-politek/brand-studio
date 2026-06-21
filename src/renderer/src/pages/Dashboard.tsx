@@ -30,7 +30,10 @@ export default function Dashboard(): JSX.Element {
 
   return (
     <div className="h-full flex flex-col">
-      <PageHeader title={brand?.name ?? 'Dashboard'} subtitle="Quick access to everything in this brand." />
+      <PageHeader
+        title={brand?.name ?? 'Dashboard'}
+        subtitle="Quick access to everything in this brand."
+      />
       <div className="p-8">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
           {TILES.map(({ label, icon: Icon, to }) => (

@@ -57,7 +57,10 @@ export default function Assets(): JSX.Element {
     if (paths.length) void importPaths(brandId, paths)
   }
 
-  const selected = useMemo(() => assets.find((a) => a.id === selectedId) ?? null, [assets, selectedId])
+  const selected = useMemo(
+    () => assets.find((a) => a.id === selectedId) ?? null,
+    [assets, selectedId]
+  )
 
   return (
     <div className="h-full flex flex-col">
@@ -90,7 +93,10 @@ export default function Assets(): JSX.Element {
               ))}
             </div>
             <div className="ml-auto relative">
-              <Search size={15} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-faint" />
+              <Search
+                size={15}
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-faint"
+              />
               <input
                 className="input pl-8 w-64"
                 placeholder="Search name or #tag"

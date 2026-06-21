@@ -93,7 +93,10 @@ export default function Editor(): JSX.Element {
         const stage = getStage()
         if (stage) {
           try {
-            await window.api.projects.saveThumb(project.id, captureThumbnailBytes(stage, project.canvas))
+            await window.api.projects.saveThumb(
+              project.id,
+              captureThumbnailBytes(stage, project.canvas)
+            )
           } catch {
             /* non-fatal */
           }

@@ -20,7 +20,9 @@ function ensureStream(): WriteStream {
 
 function write(level: string, args: unknown[]): void {
   const line = `${new Date().toISOString()} [${level}] ${args
-    .map((a) => (a instanceof Error ? (a.stack ?? a.message) : typeof a === 'string' ? a : JSON.stringify(a)))
+    .map((a) =>
+      a instanceof Error ? (a.stack ?? a.message) : typeof a === 'string' ? a : JSON.stringify(a)
+    )
     .join(' ')}\n`
   try {
     ensureStream().write(line)

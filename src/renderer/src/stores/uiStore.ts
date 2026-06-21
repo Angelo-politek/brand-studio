@@ -42,13 +42,16 @@ export const useUiStore = create<UiState>((set, get) => ({
     setTimeout(() => get().dismiss(id), 3500)
   },
   dismiss: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
-  confirm: (message) => new Promise<boolean>((resolve) => set({ confirmState: { message, resolve } })),
+  confirm: (message) =>
+    new Promise<boolean>((resolve) => set({ confirmState: { message, resolve } })),
   resolveConfirm: (v) => {
     get().confirmState?.resolve(v)
     set({ confirmState: null })
   },
   prompt: (message, defaultValue = '') =>
-    new Promise<string | null>((resolve) => set({ promptState: { message, defaultValue, resolve } })),
+    new Promise<string | null>((resolve) =>
+      set({ promptState: { message, defaultValue, resolve } })
+    ),
   resolvePrompt: (v) => {
     get().promptState?.resolve(v)
     set({ promptState: null })

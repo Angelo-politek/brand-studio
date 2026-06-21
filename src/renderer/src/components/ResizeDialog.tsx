@@ -43,7 +43,10 @@ export default function ResizeDialog({ onClose }: { onClose: () => void }): JSX.
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-6" onClick={onClose}>
-      <div className="card w-full max-w-lg max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="card w-full max-w-lg max-h-[80vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between px-5 py-4 border-b border-line">
           <h2 className="font-semibold">Make variants</h2>
           <button onClick={onClose} className="btn-ghost px-1.5 py-1.5">
@@ -83,7 +86,11 @@ export default function ResizeDialog({ onClose }: { onClose: () => void }): JSX.
           <button onClick={onClose} className="btn-ghost text-sm">
             Cancel
           </button>
-          <button onClick={create} disabled={busy || picked.size === 0} className="btn-primary text-sm">
+          <button
+            onClick={create}
+            disabled={busy || picked.size === 0}
+            className="btn-primary text-sm"
+          >
             {busy ? <Loader2 size={15} className="animate-spin" /> : null}
             Create {picked.size > 0 ? picked.size : ''} variant{picked.size === 1 ? '' : 's'}
           </button>

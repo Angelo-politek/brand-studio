@@ -86,12 +86,17 @@ export default function Templates(): JSX.Element {
                 >
                   <div className="aspect-[4/3] bg-surface-2 grid place-items-center overflow-hidden relative">
                     {t.thumbPath ? (
-                      <img src={mediaUrl(t.thumbPath)} alt="" className="max-h-full max-w-full object-contain" />
+                      <img
+                        src={mediaUrl(t.thumbPath)}
+                        alt=""
+                        className="max-h-full max-w-full object-contain"
+                      />
                     ) : (
                       <div
                         className="border border-line shadow"
                         style={{
-                          background: t.canvas.background === 'transparent' ? '#fff' : t.canvas.background,
+                          background:
+                            t.canvas.background === 'transparent' ? '#fff' : t.canvas.background,
                           width: ar >= 1 ? 96 : 96 * ar,
                           height: ar >= 1 ? 96 / ar : 96
                         }}

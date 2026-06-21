@@ -82,12 +82,17 @@ export default function Projects(): JSX.Element {
                 >
                   <div className="aspect-[4/3] bg-surface-2 grid place-items-center overflow-hidden relative">
                     {p.thumbPath ? (
-                      <img src={mediaUrl(p.thumbPath)} alt="" className="max-h-full max-w-full object-contain" />
+                      <img
+                        src={mediaUrl(p.thumbPath)}
+                        alt=""
+                        className="max-h-full max-w-full object-contain"
+                      />
                     ) : (
                       <div
                         className="border border-line shadow"
                         style={{
-                          background: p.canvas.background === 'transparent' ? '#fff' : p.canvas.background,
+                          background:
+                            p.canvas.background === 'transparent' ? '#fff' : p.canvas.background,
                           width: ar >= 1 ? 96 : 96 * ar,
                           height: ar >= 1 ? 96 / ar : 96
                         }}

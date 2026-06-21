@@ -61,23 +61,49 @@
       linear-gradient(45deg, transparent 75%, #2b3340 75%),
       linear-gradient(-45deg, transparent 75%, #2b3340 75%);
     background-size: 16px 16px;
-    background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+    background-position:
+      0 0,
+      0 8px,
+      8px -8px,
+      -8px 0;
   }
 }
 
 /* Live scene-transition previews in the video editor. */
 @keyframes vt-fade-kf {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 @keyframes vt-slide-left-kf {
-  from { transform: translateX(8%); opacity: 0.2; }
-  to { transform: translateX(0); opacity: 1; }
+  from {
+    transform: translateX(8%);
+    opacity: 0.2;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 @keyframes vt-slide-up-kf {
-  from { transform: translateY(8%); opacity: 0.2; }
-  to { transform: translateY(0); opacity: 1; }
+  from {
+    transform: translateY(8%);
+    opacity: 0.2;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
-.vt-fade { animation: vt-fade-kf 0.5s ease both; }
-.vt-slide-left { animation: vt-slide-left-kf 0.5s ease both; }
-.vt-slide-up { animation: vt-slide-up-kf 0.5s ease both; }
+.vt-fade {
+  animation: vt-fade-kf 0.5s ease both;
+}
+.vt-slide-left {
+  animation: vt-slide-left-kf 0.5s ease both;
+}
+.vt-slide-up {
+  animation: vt-slide-up-kf 0.5s ease both;
+}

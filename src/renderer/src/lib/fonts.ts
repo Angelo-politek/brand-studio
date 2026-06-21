@@ -4,10 +4,7 @@ import type { Brand } from '@shared/types'
 const registered = new Set<string>()
 
 /** Register a custom font file (data-root-relative) under the given family name. */
-export async function registerFont(
-  family: string,
-  relativePath?: string | null
-): Promise<void> {
+export async function registerFont(family: string, relativePath?: string | null): Promise<void> {
   if (!relativePath || !family) return
   const key = `${family}@@${relativePath}`
   if (registered.has(key)) return

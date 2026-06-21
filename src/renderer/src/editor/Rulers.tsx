@@ -5,7 +5,11 @@ function chooseStep(zoom: number): number {
   return STEPS[STEPS.length - 1]
 }
 
-function ticks(lengthDesign: number, zoom: number, offset: number): { pos: number; label: number }[] {
+function ticks(
+  lengthDesign: number,
+  zoom: number,
+  offset: number
+): { pos: number; label: number }[] {
   const step = chooseStep(zoom)
   const out: { pos: number; label: number }[] = []
   for (let v = 0; v <= lengthDesign; v += step) {

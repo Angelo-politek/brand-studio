@@ -56,7 +56,11 @@ function renderToDataUrl(
 }
 
 /** Capture a small PNG of the artboard for grid thumbnails. */
-export function captureThumbnailBytes(stage: Konva.Stage, canvas: CanvasSpec, max = 400): Uint8Array {
+export function captureThumbnailBytes(
+  stage: Konva.Stage,
+  canvas: CanvasSpec,
+  max = 400
+): Uint8Array {
   const scale = Math.min(1, max / Math.max(canvas.width, canvas.height))
   const url = renderToDataUrl(stage, canvas, scale, 'image/png', 1, false)
   return dataUrlToBytes(url)

@@ -93,7 +93,9 @@ export default function ElementsPanel(): JSX.Element {
   }
 
   function addText(): void {
-    addLayer(createTextLayer(canvas, brand?.fonts.find((f) => f.role === 'heading')?.family ?? 'Inter'))
+    addLayer(
+      createTextLayer(canvas, brand?.fonts.find((f) => f.role === 'heading')?.family ?? 'Inter')
+    )
   }
   function addShape(type: LayerType): void {
     const fill = brand?.colors[0]?.hex ?? '#f97316'

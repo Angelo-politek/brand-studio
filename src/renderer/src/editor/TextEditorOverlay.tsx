@@ -10,7 +10,13 @@ interface Props {
 }
 
 /** DOM textarea overlaid on a Konva text node for inline editing. */
-export default function TextEditorOverlay({ layer, zoom, pan, onCommit, onCancel }: Props): JSX.Element {
+export default function TextEditorOverlay({
+  layer,
+  zoom,
+  pan,
+  onCommit,
+  onCancel
+}: Props): JSX.Element {
   const ref = useRef<HTMLTextAreaElement>(null)
   const [val, setVal] = useState(layer.text ?? '')
 

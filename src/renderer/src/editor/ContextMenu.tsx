@@ -1,5 +1,14 @@
 import { useEffect, useRef } from 'react'
-import { ArrowUp, ArrowDown, ChevronsUp, ChevronsDown, Copy, Trash2, Lock, Unlock } from 'lucide-react'
+import {
+  ArrowUp,
+  ArrowDown,
+  ChevronsUp,
+  ChevronsDown,
+  Copy,
+  Trash2,
+  Lock,
+  Unlock
+} from 'lucide-react'
 import { useEditorStoreApi } from './editorStoreContext'
 
 interface Props {
@@ -45,7 +54,10 @@ export default function ContextMenu({ layerId, x, y, onClose }: Props): JSX.Elem
     return (
       <button
         key={label}
-        onClick={() => { action(); onClose() }}
+        onClick={() => {
+          action()
+          onClose()
+        }}
         className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left hover:bg-surface-3 transition-colors ${danger ? 'text-red-400 hover:text-red-300' : 'text-ink'}`}
       >
         {icon}

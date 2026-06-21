@@ -55,10 +55,7 @@ function mapBrand(row: any): Brand {
 
 export const brandsRepo = {
   list(): Brand[] {
-    return getDb()
-      .prepare('SELECT * FROM brands ORDER BY updated_at DESC')
-      .all()
-      .map(mapBrand)
+    return getDb().prepare('SELECT * FROM brands ORDER BY updated_at DESC').all().map(mapBrand)
   },
   get(id: string): Brand | null {
     const row = getDb().prepare('SELECT * FROM brands WHERE id = ?').get(id)
@@ -162,9 +159,7 @@ export const assetsRepo = {
   },
   update(asset: Asset): Asset {
     getDb()
-      .prepare(
-        `UPDATE assets SET name=@name, folder=@folder, tags=@tags WHERE id=@id`
-      )
+      .prepare(`UPDATE assets SET name=@name, folder=@folder, tags=@tags WHERE id=@id`)
       .run({ ...asset, tags: JSON.stringify(asset.tags) })
     return asset
   },
@@ -456,7 +451,7 @@ function mapVideo(row: any): VideoProject {
   if (scenes.length === 0 && row.source_path) {
     const trimStart = row.trim_start ?? 0
     const trimEnd = row.trim_end || row.duration || 0
-    const durationMs = Math.max(0, (trimEnd - trimStart)) * 1000
+    const durationMs = Math.max(0, trimEnd - trimStart) * 1000
     scenes = [
       {
         id: uid(),

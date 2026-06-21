@@ -74,7 +74,10 @@ interface VideoEditorState {
   setPan: (pan: { x: number; y: number }) => void
   toggleGrid: () => void
   toggleSafe: () => void
-  alignSelected: (mode: 'left' | 'centerX' | 'right' | 'top' | 'centerY' | 'bottom', ref?: 'selection' | 'canvas') => void
+  alignSelected: (
+    mode: 'left' | 'centerX' | 'right' | 'top' | 'centerY' | 'bottom',
+    ref?: 'selection' | 'canvas'
+  ) => void
   distributeSelected: (axis: 'horizontal' | 'vertical') => void
 
   // Scenes
@@ -129,7 +132,14 @@ function sceneCanvas(scene: VideoScene, width: number, height: number): CanvasSp
 }
 
 function blankScene(name: string): VideoScene {
-  return { id: uuid(), name, durationMs: DEFAULT_SCENE_MS, background: '#000000', clip: null, layers: [] }
+  return {
+    id: uuid(),
+    name,
+    durationMs: DEFAULT_SCENE_MS,
+    background: '#000000',
+    clip: null,
+    layers: []
+  }
 }
 
 export const useVideoEditorStore = create<VideoEditorState>()(
@@ -192,7 +202,11 @@ export const useVideoEditorStore = create<VideoEditorState>()(
       addLayer: (layer) =>
         set((s) => {
           const layers = [...s.layers, layer]
-          return { layers, selectedIds: [layer.id], scenes: syncScenes(s.scenes, s.activeSceneId, s.canvas, layers) }
+          return {
+            layers,
+            selectedIds: [layer.id],
+            scenes: syncScenes(s.scenes, s.activeSceneId, s.canvas, layers)
+          }
         }),
 
       updateLayer: (id, patch) =>
@@ -217,7 +231,11 @@ export const useVideoEditorStore = create<VideoEditorState>()(
         const [copy] = clone([src])
         set((s) => {
           const layers = [...s.layers, copy]
-          return { layers, selectedIds: [copy.id], scenes: syncScenes(s.scenes, s.activeSceneId, s.canvas, layers) }
+          return {
+            layers,
+            selectedIds: [copy.id],
+            scenes: syncScenes(s.scenes, s.activeSceneId, s.canvas, layers)
+          }
         })
       },
 
@@ -246,7 +264,11 @@ export const useVideoEditorStore = create<VideoEditorState>()(
       removeSelected: () =>
         set((s) => {
           const layers = s.layers.filter((l) => !s.selectedIds.includes(l.id))
-          return { layers, selectedIds: [], scenes: syncScenes(s.scenes, s.activeSceneId, s.canvas, layers) }
+          return {
+            layers,
+            selectedIds: [],
+            scenes: syncScenes(s.scenes, s.activeSceneId, s.canvas, layers)
+          }
         }),
 
       duplicateSelected: () => {
@@ -256,7 +278,11 @@ export const useVideoEditorStore = create<VideoEditorState>()(
         const copies = clone(picked)
         set((st) => {
           const layers = [...st.layers, ...copies]
-          return { layers, selectedIds: copies.map((c) => c.id), scenes: syncScenes(st.scenes, st.activeSceneId, st.canvas, layers) }
+          return {
+            layers,
+            selectedIds: copies.map((c) => c.id),
+            scenes: syncScenes(st.scenes, st.activeSceneId, st.canvas, layers)
+          }
         })
       },
 
@@ -280,7 +306,11 @@ export const useVideoEditorStore = create<VideoEditorState>()(
         const copies = clone(clipboard)
         set((s) => {
           const layers = [...s.layers, ...copies]
-          return { layers, selectedIds: copies.map((c) => c.id), scenes: syncScenes(s.scenes, s.activeSceneId, s.canvas, layers) }
+          return {
+            layers,
+            selectedIds: copies.map((c) => c.id),
+            scenes: syncScenes(s.scenes, s.activeSceneId, s.canvas, layers)
+          }
         })
       },
 
@@ -313,13 +343,20 @@ export const useVideoEditorStore = create<VideoEditorState>()(
             const w = l.width * l.scaleX
             const h = l.height * l.scaleY
             switch (mode) {
-              case 'left': return { ...l, x: refL }
-              case 'right': return { ...l, x: refR - w }
-              case 'centerX': return { ...l, x: refCX - w / 2 }
-              case 'top': return { ...l, y: refT }
-              case 'bottom': return { ...l, y: refB - h }
-              case 'centerY': return { ...l, y: refCY - h / 2 }
-              default: return l
+              case 'left':
+                return { ...l, x: refL }
+              case 'right':
+                return { ...l, x: refR - w }
+              case 'centerX':
+                return { ...l, x: refCX - w / 2 }
+              case 'top':
+                return { ...l, y: refT }
+              case 'bottom':
+                return { ...l, y: refB - h }
+              case 'centerY':
+                return { ...l, y: refCY - h / 2 }
+              default:
+                return l
             }
           })
           return { layers, scenes: syncScenes(s.scenes, s.activeSceneId, s.canvas, layers) }
@@ -332,9 +369,10 @@ export const useVideoEditorStore = create<VideoEditorState>()(
           const sorted = [...sel].sort((a, b) => (axis === 'horizontal' ? a.x - b.x : a.y - b.y))
           const first = sorted[0]
           const last = sorted[sorted.length - 1]
-          const totalSpan = axis === 'horizontal'
-            ? (last.x + last.width * last.scaleX) - first.x
-            : (last.y + last.height * last.scaleY) - first.y
+          const totalSpan =
+            axis === 'horizontal'
+              ? last.x + last.width * last.scaleX - first.x
+              : last.y + last.height * last.scaleY - first.y
           const totalSize = sorted.reduce(
             (sum, l) => sum + (axis === 'horizontal' ? l.width * l.scaleX : l.height * l.scaleY),
             0
@@ -371,7 +409,11 @@ export const useVideoEditorStore = create<VideoEditorState>()(
 
       addScene: (scene) =>
         set((s) => {
-          const newScene: VideoScene = { ...blankScene(`Scene ${s.scenes.length + 1}`), ...scene, id: uuid() }
+          const newScene: VideoScene = {
+            ...blankScene(`Scene ${s.scenes.length + 1}`),
+            ...scene,
+            id: uuid()
+          }
           const scenes = [...s.scenes, newScene]
           return {
             scenes,
@@ -423,7 +465,9 @@ export const useVideoEditorStore = create<VideoEditorState>()(
 
       setSceneDuration: (id, durationMs) =>
         set((s) => ({
-          scenes: s.scenes.map((p) => (p.id === id ? { ...p, durationMs: Math.max(200, Math.round(durationMs)) } : p))
+          scenes: s.scenes.map((p) =>
+            p.id === id ? { ...p, durationMs: Math.max(200, Math.round(durationMs)) } : p
+          )
         })),
 
       reorderScene: (id, toIndex) =>
@@ -464,8 +508,7 @@ export const useVideoEditorStore = create<VideoEditorState>()(
         })),
 
       setAudio: (audio) => set({ audio }),
-      updateAudio: (patch) =>
-        set((s) => ({ audio: s.audio ? { ...s.audio, ...patch } : s.audio })),
+      updateAudio: (patch) => set((s) => ({ audio: s.audio ? { ...s.audio, ...patch } : s.audio })),
 
       setPlayhead: (ms) => set({ playheadMs: Math.max(0, ms) }),
       setPlaying: (p) => set({ playing: p }),

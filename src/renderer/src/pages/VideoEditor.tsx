@@ -12,7 +12,11 @@ import Inspector from '@renderer/editor/Inspector'
 import Timeline from '@renderer/editor/video/Timeline'
 import SceneClipNode from '@renderer/editor/video/SceneClipNode'
 import AssetPickerDialog from '@renderer/editor/video/AssetPickerDialog'
-import { renderSceneOverlayPng, renderSceneOverlayFrames, sceneHasAnimation } from '@renderer/lib/videoExport'
+import {
+  renderSceneOverlayPng,
+  renderSceneOverlayFrames,
+  sceneHasAnimation
+} from '@renderer/lib/videoExport'
 import { animateLayer } from '@renderer/lib/videoAnim'
 import { exportVideo } from '@renderer/lib/python'
 import { mediaUrl } from '@shared/ipc'
@@ -43,9 +47,20 @@ export default function VideoEditor(): JSX.Element {
 
   const store = useVideoEditorStore
   const {
-    name, width, height, scenes, activeSceneId, audio,
-    playheadMs, playing,
-    setName, setPlaying, setPlayhead, setSceneClip, setAudio, addScene
+    name,
+    width,
+    height,
+    scenes,
+    activeSceneId,
+    audio,
+    playheadMs,
+    playing,
+    setName,
+    setPlaying,
+    setPlayhead,
+    setSceneClip,
+    setAudio,
+    addScene
   } = useVideoEditorStore()
 
   const activeScene = scenes.find((s) => s.id === activeSceneId) ?? scenes[0]
@@ -70,7 +85,14 @@ export default function VideoEditor(): JSX.Element {
 
   // Global timeline offset (ms) = sum of durations before the active scene + local playhead.
   const globalOffsetMs =
-    scenes.slice(0, Math.max(0, scenes.findIndex((s) => s.id === activeSceneId)))
+    scenes
+      .slice(
+        0,
+        Math.max(
+          0,
+          scenes.findIndex((s) => s.id === activeSceneId)
+        )
+      )
       .reduce((sum, s) => sum + s.durationMs, 0) + playheadMs
 
   // Drive the background-music <audio> from play state + global playhead.
@@ -96,7 +118,10 @@ export default function VideoEditor(): JSX.Element {
       if (!videoId) return
       const vp = await window.api.video.get(videoId)
       if (cancelled) return
-      if (!vp) { navigate('/app/videos'); return }
+      if (!vp) {
+        navigate('/app/videos')
+        return
+      }
       store.getState().loadProject(vp)
       store.temporal.getState().clear()
       lastSaved.current = JSON.stringify({ name: vp.name, scenes: vp.scenes, audio: vp.audio })
@@ -105,7 +130,10 @@ export default function VideoEditor(): JSX.Element {
         (await window.api.brands.get(vp.brandId))
       await ensureBrandFonts(brand)
     })()
-    return () => { cancelled = true; store.temporal.getState().clear() }
+    return () => {
+      cancelled = true
+      store.temporal.getState().clear()
+    }
   }, [videoId, navigate, store])
 
   // Debounced autosave.
@@ -246,11 +274,22 @@ export default function VideoEditor(): JSX.Element {
       }))
 
       const audio = vp.audio
-        ? { path: `${root}/${vp.audio.src.replace(/\\/g, '/')}`, volume: vp.audio.volume, inMs: vp.audio.inMs }
+        ? {
+            path: `${root}/${vp.audio.src.replace(/\\/g, '/')}`,
+            volume: vp.audio.volume,
+            inMs: vp.audio.inMs
+          }
         : null
 
       const result = await exportVideo({
-        outputPath, width: vp.width, height: vp.height, scenes, overlays, frames, overlayFps: OVERLAY_FPS, audio
+        outputPath,
+        width: vp.width,
+        height: vp.height,
+        scenes,
+        overlays,
+        frames,
+        overlayFps: OVERLAY_FPS,
+        audio
       })
       if (!result) {
         toast('Processing backend offline — restart the app.', 'error')
@@ -286,7 +325,10 @@ export default function VideoEditor(): JSX.Element {
             onChange={(e) => setName(e.target.value)}
           />
           <button
-            onClick={() => { setPlayhead(0); setPlaying(!playing) }}
+            onClick={() => {
+              setPlayhead(0)
+              setPlaying(!playing)
+            }}
             className="btn-ghost px-2 py-1.5 ml-2"
             title={playing ? 'Pause' : 'Play'}
           >
@@ -294,7 +336,13 @@ export default function VideoEditor(): JSX.Element {
           </button>
           <div className="ml-auto flex items-center gap-3">
             <span className="text-xs text-ink-faint flex items-center gap-1">
-              {saving ? 'Saving…' : <><Check size={13} className="text-green-400" /> Saved</>}
+              {saving ? (
+                'Saving…'
+              ) : (
+                <>
+                  <Check size={13} className="text-green-400" /> Saved
+                </>
+              )}
             </span>
             <button
               onClick={() => void handleExport()}
@@ -314,9 +362,7 @@ export default function VideoEditor(): JSX.Element {
             <div className={`flex-1 min-h-0 ${transClass}`}>
               <EditorCanvas
                 layerTransform={
-                  playing
-                    ? (l) => animateLayer(l, playheadMs, activeScene.durationMs)
-                    : undefined
+                  playing ? (l) => animateLayer(l, playheadMs, activeScene.durationMs) : undefined
                 }
                 underlay={
                   activeScene.clip ? (

@@ -570,6 +570,10 @@ export default function Inspector(): JSX.Element | null {
             <Row label="Shadow Blur">
               <Num value={layer.shadowBlur} min={0} onChange={(v) => set({ shadowBlur: v })} />
             </Row>
+            <Row label="Shadow Off">
+              <Num value={layer.shadowOffsetX} onChange={(v) => set({ shadowOffsetX: v })} />
+              <Num value={layer.shadowOffsetY} onChange={(v) => set({ shadowOffsetY: v })} />
+            </Row>
 
             {/* Animation (video editor only) */}
             {isVideo && (

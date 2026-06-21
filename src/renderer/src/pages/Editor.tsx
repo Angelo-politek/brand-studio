@@ -12,6 +12,7 @@ import PagesPanel from '@renderer/editor/PagesPanel'
 import { useEditorHotkeys } from '@renderer/editor/useEditorHotkeys'
 import ExportDialog from '@renderer/components/ExportDialog'
 import ResizeDialog from '@renderer/components/ResizeDialog'
+import ShortcutsDialog from '@renderer/components/ShortcutsDialog'
 import { getStage } from '@renderer/editor/stageRef'
 import { captureThumbnailBytes } from '@renderer/editor/exportArtboard'
 import { toast } from '@renderer/stores/uiStore'
@@ -45,6 +46,7 @@ export default function Editor(): JSX.Element {
   const [saving, setSaving] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
   const [resizeOpen, setResizeOpen] = useState(false)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const lastSavedRef = useRef('')
 
   useEditorHotkeys()
@@ -124,6 +126,17 @@ export default function Editor(): JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [name, canvas, layers, pages])
 
+  // "?" opens the shortcuts panel (ignored while typing in a field).
+  useEffect(() => {
+    function onKey(e: KeyboardEvent): void {
+      const el = e.target as HTMLElement
+      if (el?.tagName === 'INPUT' || el?.tagName === 'TEXTAREA' || el?.isContentEditable) return
+      if (e.key === '?') setShortcutsOpen(true)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
   // Flush any pending changes on window close / navigation away, so closing
   // within the debounce window does not lose work.
   useEffect(() => {
@@ -148,6 +161,7 @@ export default function Editor(): JSX.Element {
         saving={saving}
         onExport={() => setExportOpen(true)}
         onResize={() => setResizeOpen(true)}
+        onShortcuts={() => setShortcutsOpen(true)}
       />
       <div className="flex-1 min-h-0 flex">
         <ElementsPanel />
@@ -166,6 +180,7 @@ export default function Editor(): JSX.Element {
       </div>
       {exportOpen && <ExportDialog onClose={() => setExportOpen(false)} />}
       {resizeOpen && <ResizeDialog onClose={() => setResizeOpen(false)} />}
+      {shortcutsOpen && <ShortcutsDialog onClose={() => setShortcutsOpen(false)} />}
     </div>
   )
 }

@@ -11,6 +11,8 @@ import {
   Download,
   Check,
   LayoutTemplate,
+  Palette,
+  Keyboard,
   Maximize2,
   AlignLeft,
   AlignCenter,
@@ -24,6 +26,8 @@ import {
 import { callFit } from './fitRef'
 import { useEditorStore } from '@renderer/stores/editorStore'
 import { extractVariables } from '@renderer/lib/variables'
+import { applyBrandToLayers } from '@renderer/lib/brandApply'
+import { useCurrentBrand } from '@renderer/stores/brandStore'
 import { toast, promptDialog } from '@renderer/stores/uiStore'
 import { getStage } from './stageRef'
 import { captureThumbnailBytes } from './exportArtboard'
@@ -34,6 +38,7 @@ interface Props {
   saving: boolean
   onExport?: () => void
   onResize?: () => void
+  onShortcuts?: () => void
 }
 
 function SelectionInfo({
@@ -162,8 +167,14 @@ function ZoomControl(): JSX.Element {
   )
 }
 
-export default function EditorTopBar({ saving, onExport, onResize }: Props): JSX.Element {
+export default function EditorTopBar({
+  saving,
+  onExport,
+  onResize,
+  onShortcuts
+}: Props): JSX.Element {
   const navigate = useNavigate()
+  const brand = useCurrentBrand()
   const {
     name,
     setName,
@@ -209,6 +220,20 @@ export default function EditorTopBar({ saving, onExport, onResize }: Props): JSX
       `Saved as template${variables.length ? ` with variables: ${variables.map((v) => `{{${v}}}`).join(', ')}` : ''}.`,
       'success'
     )
+  }
+
+  function applyBrand(): void {
+    if (!brand) {
+      toast('No brand selected.', 'error')
+      return
+    }
+    const st = useEditorStore.getState()
+    // Apply to the selection, or to all layers when nothing is selected.
+    const targetIds = st.selectedIds.length ? st.selectedIds : st.layers.map((l) => l.id)
+    const targets = st.layers.filter((l) => targetIds.includes(l.id))
+    const updated = applyBrandToLayers(targets, brand)
+    updated.forEach((l) => st.updateLayer(l.id, l))
+    toast('Brand kit applied.', 'success')
   }
 
   return (
@@ -336,6 +361,14 @@ export default function EditorTopBar({ saving, onExport, onResize }: Props): JSX
       )}
 
       <button
+        onClick={applyBrand}
+        className="btn-ghost px-2 py-1.5 text-sm"
+        title="Apply brand colors & fonts (selection or all)"
+      >
+        <Palette size={16} />
+      </button>
+
+      <button
         onClick={saveAsTemplate}
         className="btn-ghost px-2 py-1.5 text-sm"
         title="Save as template"
@@ -350,6 +383,15 @@ export default function EditorTopBar({ saving, onExport, onResize }: Props): JSX
       )}
 
       <div className="ml-auto flex items-center gap-3">
+        {onShortcuts && (
+          <button
+            onClick={onShortcuts}
+            className="btn-ghost px-2 py-1.5"
+            title="Keyboard shortcuts (?)"
+          >
+            <Keyboard size={16} />
+          </button>
+        )}
         <ZoomControl />
         <span className="text-xs text-ink-faint flex items-center gap-1">
           {saving ? (

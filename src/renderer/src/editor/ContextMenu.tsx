@@ -7,9 +7,13 @@ import {
   Copy,
   Trash2,
   Lock,
-  Unlock
+  Unlock,
+  AlignCenter,
+  AlignCenterVertical,
+  Palette
 } from 'lucide-react'
 import { useEditorStoreApi } from './editorStoreContext'
+import { useCurrentBrand } from '@renderer/stores/brandStore'
 
 interface Props {
   layerId: string
@@ -20,9 +24,25 @@ interface Props {
 
 export default function ContextMenu({ layerId, x, y, onClose }: Props): JSX.Element {
   const useStore = useEditorStoreApi()
-  const { layers, moveLayer, duplicateLayer, removeLayer, updateLayer } = useStore()
+  const { layers, canvas, moveLayer, duplicateLayer, removeLayer, updateLayer } = useStore()
+  const brand = useCurrentBrand()
   const ref = useRef<HTMLDivElement>(null)
   const layer = layers.find((l) => l.id === layerId)
+
+  function centerH(): void {
+    if (!layer) return
+    updateLayer(layerId, { x: canvas.width / 2 - (layer.width * layer.scaleX) / 2 })
+  }
+  function centerV(): void {
+    if (!layer) return
+    updateLayer(layerId, { y: canvas.height / 2 - (layer.height * layer.scaleY) / 2 })
+  }
+  function applyBrandColor(): void {
+    const hex = brand?.colors[0]?.hex
+    if (!layer || !hex) return
+    const key = layer.type === 'line' || layer.type === 'arrow' ? 'strokeColor' : 'fill'
+    updateLayer(layerId, { [key]: hex })
+  }
 
   useEffect(() => {
     function handleClick(e: MouseEvent): void {
@@ -79,6 +99,12 @@ export default function ContextMenu({ layerId, x, y, onClose }: Props): JSX.Elem
       {item('Bring Forward', <ArrowUp size={13} />, () => moveLayer(layerId, 'up'))}
       {item('Send Backward', <ArrowDown size={13} />, () => moveLayer(layerId, 'down'))}
       {item('Send to Back', <ChevronsDown size={13} />, () => moveLayer(layerId, 'bottom'))}
+
+      <div className="my-1 border-t border-line" />
+
+      {item('Center horizontally', <AlignCenter size={13} />, centerH)}
+      {item('Center vertically', <AlignCenterVertical size={13} />, centerV)}
+      {brand?.colors[0] && item('Apply brand color', <Palette size={13} />, applyBrandColor)}
 
       <div className="my-1 border-t border-line" />
 

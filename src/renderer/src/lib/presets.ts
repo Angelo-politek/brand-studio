@@ -1,4 +1,4 @@
-export type PresetCategory = 'Social' | 'Print' | 'Marketing' | 'Video'
+export type PresetCategory = 'Social' | 'Print' | 'Marketing' | 'Video' | 'Hardware'
 
 /** Whether a preset is for a static design or a video project. */
 export type PresetKind = 'design' | 'video'
@@ -56,6 +56,49 @@ export const SIZE_PRESETS: SizePreset[] = [
     width: 2480,
     height: 3508
   },
+  // Hardware front panels (visual mockups, 10 px per mm)
+  {
+    type: 'eurorack_8hp',
+    label: 'Eurorack 8HP (3U)',
+    category: 'Hardware',
+    width: 406, // 8 × 5.08mm
+    height: 1285 // 128.5mm
+  },
+  {
+    type: 'eurorack_12hp',
+    label: 'Eurorack 12HP (3U)',
+    category: 'Hardware',
+    width: 610,
+    height: 1285
+  },
+  {
+    type: 'eurorack_16hp',
+    label: 'Eurorack 16HP (3U)',
+    category: 'Hardware',
+    width: 813,
+    height: 1285
+  },
+  {
+    type: 'rack_1u',
+    label: '19″ Rack 1U',
+    category: 'Hardware',
+    width: 4826, // 482.6mm
+    height: 444 // 44.45mm
+  },
+  {
+    type: 'rack_2u',
+    label: '19″ Rack 2U',
+    category: 'Hardware',
+    width: 4826,
+    height: 889
+  },
+  {
+    type: 'desktop_unit',
+    label: 'Desktop unit (30×20cm)',
+    category: 'Hardware',
+    width: 3000,
+    height: 2000
+  },
   // Video
   {
     type: 'reel',
@@ -83,7 +126,7 @@ export const SIZE_PRESETS: SizePreset[] = [
   }
 ]
 
-export const PRESET_CATEGORIES: PresetCategory[] = ['Social', 'Print', 'Marketing']
+export const PRESET_CATEGORIES: PresetCategory[] = ['Social', 'Print', 'Marketing', 'Hardware']
 
 /** Categories shown when creating a video project. */
 export const VIDEO_PRESET_CATEGORIES: PresetCategory[] = ['Video']

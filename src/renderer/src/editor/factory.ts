@@ -1,5 +1,6 @@
 import { v4 as uuid } from 'uuid'
-import type { CanvasSpec, Layer, LayerType } from '@shared/types'
+import { defaultPanelSize, PANEL_DEFAULTS, PANEL_KIND_LABELS } from '@renderer/lib/panelShapes'
+import type { CanvasSpec, Layer, LayerType, PanelComponentKind } from '@shared/types'
 
 const base = (canvas: CanvasSpec): Omit<Layer, 'id' | 'type' | 'name'> => ({
   x: canvas.width / 2,
@@ -74,6 +75,29 @@ export function createShapeLayer(type: LayerType, canvas: CanvasSpec, fill = '#f
     common.height = 24
   }
   return common
+}
+
+export function createPanelComponent(
+  kind: PanelComponentKind,
+  canvas: CanvasSpec,
+  accent?: string
+): Layer {
+  const { width, height } = defaultPanelSize(kind)
+  counter += 1
+  return {
+    ...base(canvas),
+    id: uuid(),
+    type: 'panelComponent',
+    name: `${PANEL_KIND_LABELS[kind]} ${counter}`,
+    width,
+    height,
+    x: canvas.width / 2 - width / 2,
+    y: canvas.height / 2 - height / 2,
+    component: {
+      kind,
+      params: { ...PANEL_DEFAULTS[kind], ...(accent ? { accent } : {}) }
+    }
+  }
 }
 
 export function createImageLayer(

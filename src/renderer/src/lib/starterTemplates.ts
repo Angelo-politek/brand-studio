@@ -1,5 +1,5 @@
 import { v4 as uuid } from 'uuid'
-import type { Brand, CanvasSpec, Layer } from '@shared/types'
+import type { Brand, CanvasSpec, Layer, PanelComponentKind, PanelComponentParams } from '@shared/types'
 
 /**
  * Built-in starter templates for static designs. Each produces a ready-made
@@ -202,8 +202,78 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
         })
       ]
     }
+  },
+  {
+    id: 'eurorack-vco',
+    name: 'Eurorack module',
+    description: 'VCO front panel mockup — knobs, jacks, LED (12HP).',
+    canvas: { width: 610, height: 1285, background: '#d8dade' },
+    build: (canvas, brand) => {
+      const p = paletteFor(brand)
+      const accent = p.primary
+      const cx = canvas.width / 2
+      const label = (t: string, x: number, y: number, w: number, size = 24): Layer =>
+        text(t, x, y, w, size, { fill: '#17171a', fontFamily: p.body, align: 'center' })
+      return [
+        // Module name + brand strip
+        text('VCO-1', cx - 200, 60, 400, 64, {
+          fontFamily: p.heading,
+          fontStyle: 'bold',
+          fill: '#17171a'
+        }),
+        rect(cx - 90, 140, 180, 8, accent, { name: 'Accent' }),
+        // Corner screws
+        panel('screw', 20, 20, 30, 30),
+        panel('screw', canvas.width - 50, 20, 30, 30),
+        panel('screw', 20, canvas.height - 50, 30, 30),
+        panel('screw', canvas.width - 50, canvas.height - 50, 30, 30),
+        // Big frequency knob
+        panel('knob', cx - 110, 220, 220, 220, { accent }),
+        label('FREQ', cx - 100, 450, 200),
+        // Fine + shape knobs
+        panel('knob', 70, 540, 130, 130, { accent, value: 0.35 }),
+        label('FINE', 60, 680, 150),
+        panel('knob', canvas.width - 200, 540, 130, 130, { accent, value: 0.8 }),
+        label('SHAPE', canvas.width - 210, 680, 150),
+        // Wave toggle + activity LED
+        panel('toggle', cx - 30, 760, 60, 100),
+        label('SAW/SQR', cx - 100, 870, 200),
+        panel('led', cx - 18, 930, 36, 36, { accent, on: true }),
+        // Jack row
+        panel('jack', 60, 1050, 70, 70),
+        label('V/OCT', 40, 1130, 110, 20),
+        panel('jack', 180, 1050, 70, 70),
+        label('FM', 160, 1130, 110, 20),
+        panel('jack', 300, 1050, 70, 70),
+        label('SYNC', 280, 1130, 110, 20),
+        panel('jack', 440, 1050, 70, 70, { accent: '#17171a' }),
+        label('OUT', 420, 1130, 110, 20)
+      ]
+    }
   }
 ]
+
+/** panelComponent layer helper for hardware mockup templates. */
+function panel(
+  kind: PanelComponentKind,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  params: PanelComponentParams = {}
+): Layer {
+  return {
+    ...baseLayer(),
+    id: uuid(),
+    type: 'panelComponent',
+    name: kind,
+    x,
+    y,
+    width,
+    height,
+    component: { kind, params }
+  }
+}
 
 export function starterById(id: string): StarterTemplate | undefined {
   return STARTER_TEMPLATES.find((t) => t.id === id)

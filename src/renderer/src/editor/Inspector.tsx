@@ -587,6 +587,11 @@ export default function Inspector(): JSX.Element | null {
           </>
         )}
 
+        {/* Hardware panel component */}
+        {layer.type === 'panelComponent' && layer.component && (
+          <PanelComponentSection layer={layer} set={set} />
+        )}
+
         {/* Line / Arrow */}
         {(layer.type === 'line' || layer.type === 'arrow') && (
           <>
@@ -849,6 +854,76 @@ export default function Inspector(): JSX.Element | null {
         {/* Animation (video editor only, any layer type) */}
         {isVideo && <AnimSection layer={layer} set={set} />}
       </div>
+    </div>
+  )
+}
+
+/** Parametric controls for hardware front-panel components. */
+function PanelComponentSection({
+  layer,
+  set
+}: {
+  layer: Layer
+  set: (patch: Partial<Layer>) => void
+}): JSX.Element {
+  const comp = layer.component!
+  const p = comp.params ?? {}
+  const setParams = (patch: Partial<typeof p>): void =>
+    set({ component: { ...comp, params: { ...p, ...patch } } })
+
+  const hasValue = ['knob', 'encoder', 'fader', 'toggle', 'screw'].includes(comp.kind)
+  const hasTicks = ['knob', 'fader'].includes(comp.kind)
+  const hasOn = ['led', 'pushbutton', 'display7seg', 'displayOled'].includes(comp.kind)
+  const hasText = ['display7seg', 'displayOled'].includes(comp.kind)
+  const valueLabel =
+    comp.kind === 'fader' ? 'Position' : comp.kind === 'toggle' ? 'Up/Down' : 'Value'
+
+  return (
+    <div className="pt-1 border-t border-line space-y-2">
+      <span className="text-[11px] text-ink-faint font-medium">Component</span>
+      <Row label="Body">
+        <ColorField value={p.color} onChange={(v) => setParams({ color: v })} />
+      </Row>
+      <Row label="Accent">
+        <ColorField value={p.accent} onChange={(v) => setParams({ accent: v })} />
+      </Row>
+      {hasValue && (
+        <Row label={valueLabel}>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            value={p.value ?? 0.5}
+            onChange={(e) => setParams({ value: Number(e.target.value) })}
+            className="w-full"
+          />
+        </Row>
+      )}
+      {hasTicks && (
+        <Row label="Ticks">
+          <Num value={p.ticks ?? 0} min={0} max={31} onChange={(v) => setParams({ ticks: v })} />
+        </Row>
+      )}
+      {hasOn && (
+        <Row label="Lit">
+          <input
+            type="checkbox"
+            checked={p.on ?? true}
+            onChange={(e) => setParams({ on: e.target.checked })}
+          />
+        </Row>
+      )}
+      {hasText && (
+        <Row label="Text">
+          <textarea
+            className="input text-xs font-mono"
+            rows={comp.kind === 'displayOled' ? 3 : 1}
+            value={p.text ?? ''}
+            onChange={(e) => setParams({ text: e.target.value })}
+          />
+        </Row>
+      )}
     </div>
   )
 }

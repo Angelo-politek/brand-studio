@@ -13,6 +13,7 @@ import {
 import type { KonvaEventObject, Filter } from 'konva/lib/Node'
 import { mediaUrl } from '@shared/ipc'
 import { useImage } from '@renderer/lib/useImage'
+import PanelComponentNode from './panel/PanelComponentNode'
 import type { Layer } from '@shared/types'
 
 interface NodeCtx {
@@ -389,6 +390,8 @@ export default function LayerNode({
           />
         </Group>
       )
+    case 'panelComponent':
+      return <PanelComponentNode layer={layer} common={common} />
     default:
       return null
   }

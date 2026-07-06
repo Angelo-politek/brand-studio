@@ -109,6 +109,36 @@ export type LayerType =
   | 'arrow'
   | 'image'
   | 'group'
+  | 'panelComponent'
+
+/** Hardware front-panel component kinds (music-gear mockups). */
+export type PanelComponentKind =
+  | 'knob'
+  | 'encoder'
+  | 'fader'
+  | 'jack'
+  | 'led'
+  | 'toggle'
+  | 'pushbutton'
+  | 'screw'
+  | 'display7seg'
+  | 'displayOled'
+
+/** Parametric styling for a panelComponent layer. */
+export interface PanelComponentParams {
+  /** Main body color (knob cap, fader handle, button face). */
+  color?: string
+  /** Accent color (indicator, LED light, display glyphs). */
+  accent?: string
+  /** Normalized value 0..1 (knob rotation, fader position, toggle up/down). */
+  value?: number
+  /** Tick marks around knobs / fader lanes (0 = none). */
+  ticks?: number
+  /** LED / pushbutton lit state. */
+  on?: boolean
+  /** Display text (7-segment / OLED kinds). */
+  text?: string
+}
 
 /**
  * Serialized canvas object. A loose superset of properties across layer types;
@@ -177,6 +207,12 @@ export interface Layer {
 
   /** Enter/exit animation (used by the video editor; ignored by design editor). */
   anim?: LayerAnimation
+
+  // panelComponent (hardware mockups)
+  component?: {
+    kind: PanelComponentKind
+    params: PanelComponentParams
+  }
 }
 
 export type LayerAnimationIn =

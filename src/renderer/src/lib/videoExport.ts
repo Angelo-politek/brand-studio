@@ -1,6 +1,7 @@
 import Konva from 'konva'
 import { mediaUrl } from '@shared/ipc'
 import { animateLayer } from './videoAnim'
+import { buildPanelPrimitives } from './panelShapes'
 import type { Layer, VideoScene } from '@shared/types'
 
 /** Load an image element (CORS-safe) for export rendering. */
@@ -91,6 +92,93 @@ async function addLayerNode(
           crop: layer.crop ?? undefined
         })
       )
+      break
+    }
+    case 'panelComponent': {
+      if (!layer.component) break
+      // Same primitives as the live editor node (lib/panelShapes.ts).
+      const group = new Konva.Group(common)
+      const prims = buildPanelPrimitives(
+        layer.component.kind,
+        layer.component.params ?? {},
+        layer.width,
+        layer.height
+      )
+      for (const p of prims) {
+        switch (p.kind) {
+          case 'circle':
+            group.add(
+              new Konva.Circle({
+                x: p.x,
+                y: p.y,
+                radius: p.radius,
+                fill: p.fill,
+                stroke: p.stroke,
+                strokeWidth: p.strokeWidth,
+                shadowColor: p.shadowColor,
+                shadowBlur: p.shadowBlur,
+                opacity: p.opacity ?? 1
+              })
+            )
+            break
+          case 'rect':
+            group.add(
+              new Konva.Rect({
+                x: p.x,
+                y: p.y,
+                width: p.width,
+                height: p.height,
+                cornerRadius: p.cornerRadius,
+                fill: p.fill,
+                stroke: p.stroke,
+                strokeWidth: p.strokeWidth,
+                opacity: p.opacity ?? 1
+              })
+            )
+            break
+          case 'line':
+            group.add(
+              new Konva.Line({
+                points: p.points,
+                stroke: p.stroke,
+                strokeWidth: p.strokeWidth,
+                lineCap: p.lineCap,
+                opacity: p.opacity ?? 1
+              })
+            )
+            break
+          case 'polygon':
+            group.add(
+              new Konva.RegularPolygon({
+                x: p.x,
+                y: p.y,
+                radius: p.radius,
+                sides: p.sides,
+                rotation: p.rotation ?? 0,
+                fill: p.fill,
+                stroke: p.stroke,
+                strokeWidth: p.strokeWidth
+              })
+            )
+            break
+          case 'text':
+            group.add(
+              new Konva.Text({
+                x: p.x,
+                y: p.y,
+                width: p.width,
+                text: p.text,
+                fontSize: p.fontSize,
+                fontFamily: p.fontFamily,
+                fill: p.fill,
+                align: p.align,
+                opacity: p.opacity ?? 1
+              })
+            )
+            break
+        }
+      }
+      konvaLayer.add(group)
       break
     }
     default:

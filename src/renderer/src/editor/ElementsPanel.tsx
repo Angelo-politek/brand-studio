@@ -11,18 +11,28 @@ import {
   Shapes,
   Images,
   Upload,
-  Loader2
+  Loader2,
+  Disc,
+  RotateCw,
+  SlidersVertical,
+  Plug,
+  Lightbulb,
+  ToggleLeft,
+  CircleDot,
+  Settings2,
+  Calculator,
+  MonitorSmartphone
 } from 'lucide-react'
 import { cn } from '@renderer/lib/cn'
 import { mediaUrl } from '@shared/ipc'
 import { useEditorStoreApi } from './editorStoreContext'
 import { useCurrentBrand } from '@renderer/stores/brandStore'
 import { useAssetStore } from '@renderer/stores/assetStore'
-import { createTextLayer, createShapeLayer, createImageLayer } from './factory'
+import { createTextLayer, createShapeLayer, createImageLayer, createPanelComponent } from './factory'
 import { isImageMime } from '@renderer/lib/mime'
 import { pickFiles } from '@renderer/lib/files'
 import { ASSET_FOLDERS } from '@shared/types'
-import type { Asset, AssetFolder, LayerType } from '@shared/types'
+import type { Asset, AssetFolder, LayerType, PanelComponentKind } from '@shared/types'
 
 const SHAPES: { type: LayerType; label: string; icon: typeof Square }[] = [
   { type: 'rect', label: 'Rectangle', icon: Square },
@@ -31,6 +41,20 @@ const SHAPES: { type: LayerType; label: string; icon: typeof Square }[] = [
   { type: 'polygon', label: 'Polygon', icon: Hexagon },
   { type: 'line', label: 'Line', icon: Minus },
   { type: 'arrow', label: 'Arrow', icon: MoveRight }
+]
+
+/** Hardware components for music-gear front panel mockups. */
+const HARDWARE: { kind: PanelComponentKind; label: string; icon: typeof Square }[] = [
+  { kind: 'knob', label: 'Knob', icon: Disc },
+  { kind: 'encoder', label: 'Encoder', icon: RotateCw },
+  { kind: 'fader', label: 'Fader', icon: SlidersVertical },
+  { kind: 'jack', label: 'Jack', icon: Plug },
+  { kind: 'led', label: 'LED', icon: Lightbulb },
+  { kind: 'toggle', label: 'Toggle', icon: ToggleLeft },
+  { kind: 'pushbutton', label: 'Button', icon: CircleDot },
+  { kind: 'screw', label: 'Screw', icon: Settings2 },
+  { kind: 'display7seg', label: '7-seg', icon: Calculator },
+  { kind: 'displayOled', label: 'OLED', icon: MonitorSmartphone }
 ]
 
 type FolderTab = AssetFolder | 'All'
@@ -106,6 +130,11 @@ export default function ElementsPanel(): JSX.Element {
       createImageLayer(canvas, asset.filePath, asset.width ?? 800, asset.height ?? 800, asset.name)
     )
   }
+  function addHardware(kind: PanelComponentKind): void {
+    // Indicators/LEDs pick up the brand accent (or primary) automatically.
+    const accent = brand?.colors.find((c) => c.role === 'accent')?.hex ?? brand?.colors[0]?.hex
+    addLayer(createPanelComponent(kind, canvas, accent))
+  }
 
   return (
     <div className="w-64 shrink-0 h-full bg-surface-1 border-r border-line flex flex-col">
@@ -141,6 +170,21 @@ export default function ElementsPanel(): JSX.Element {
                   <button
                     key={type}
                     onClick={() => addShape(type)}
+                    className="btn-surface flex-col h-16 gap-1 text-[11px]"
+                  >
+                    <Icon size={18} />
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="text-[11px] text-ink-faint mb-2">Hardware (front panel)</div>
+              <div className="grid grid-cols-2 gap-2">
+                {HARDWARE.map(({ kind, label, icon: Icon }) => (
+                  <button
+                    key={kind}
+                    onClick={() => addHardware(kind)}
                     className="btn-surface flex-col h-16 gap-1 text-[11px]"
                   >
                     <Icon size={18} />

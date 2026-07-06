@@ -179,6 +179,7 @@ function ImageNode({
   if (f.contrast) filters.push(Konva.Filters.Contrast)
   if (f.blur) filters.push(Konva.Filters.Blur)
   if (f.grayscale) filters.push(Konva.Filters.Grayscale)
+  if (f.saturation) filters.push(Konva.Filters.HSL)
 
   useEffect(() => {
     const node = ref.current
@@ -187,7 +188,17 @@ function ImageNode({
       node.getLayer()?.batchDraw()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [img, f.brightness, f.contrast, f.blur, f.grayscale, layer.width, layer.height, layer.crop])
+  }, [
+    img,
+    f.brightness,
+    f.contrast,
+    f.blur,
+    f.grayscale,
+    f.saturation,
+    layer.width,
+    layer.height,
+    layer.crop
+  ])
 
   if (!img) return null
 
@@ -237,6 +248,7 @@ function ImageNode({
         brightness={f.brightness ?? 0}
         contrast={f.contrast ?? 0}
         blurRadius={f.blur ?? 0}
+        saturation={f.saturation ?? 0}
       />
       {co && co.opacity > 0 && (
         <Rect

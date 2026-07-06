@@ -31,6 +31,8 @@ export interface SharedEditorState {
   select: (id: string | null) => void
   toggleSelect: (id: string) => void
   setSelection: (ids: string[]) => void
+  groupSelected: () => void
+  ungroupSelected: () => void
   setCropMode: (id: string | null) => void
   setZoom: (zoom: number) => void
   setPan: (pan: { x: number; y: number }) => void

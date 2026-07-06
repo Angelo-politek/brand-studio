@@ -161,6 +161,7 @@ export default function Inspector(): JSX.Element | null {
     tag: string
   ): Promise<void> {
     if (!layer || !brandId) return
+    const oldSrc = layer.src
     const blob = new Blob([out as BlobPart], { type: 'image/png' })
     const thumb = await makeImageThumbnail(blob)
     const asset = await window.api.assets.import({
@@ -175,6 +176,21 @@ export default function Inspector(): JSX.Element | null {
       tags: [tag]
     })
     updateLayer(layer.id, { src: asset.filePath })
+    // Re-processing replaces a previously GENERATED asset (nobg/brand-match):
+    // delete the superseded one so they don't pile up. Original user uploads
+    // carry no generated tag and are never touched.
+    if (oldSrc) {
+      try {
+        const all = await window.api.assets.list({ brandId })
+        const prev = all.find(
+          (a) =>
+            a.filePath === oldSrc && a.tags.some((t) => ['nobg', 'brand-match'].includes(t))
+        )
+        if (prev) await window.api.assets.delete(prev.id)
+      } catch {
+        /* cleanup is best-effort */
+      }
+    }
   }
 
   async function matchPalette(): Promise<void> {
@@ -249,20 +265,7 @@ export default function Inspector(): JSX.Element | null {
         toast('Background removal unavailable (processing backend not ready).', 'error')
         return
       }
-      const blob = new Blob([out as BlobPart], { type: 'image/png' })
-      const thumb = await makeImageThumbnail(blob)
-      const asset = await window.api.assets.import({
-        brandId,
-        folder: 'Images',
-        name: `${layer.name}-nobg.png`,
-        mime: 'image/png',
-        bytes: out,
-        width: thumb?.width ?? null,
-        height: thumb?.height ?? null,
-        thumbBytes: thumb?.bytes ?? null,
-        tags: ['nobg']
-      })
-      updateLayer(layer.id, { src: asset.filePath })
+      await saveProcessedAsLayerSrc(out, 'nobg', 'nobg')
       toast('Background removed.', 'success')
     } catch (e) {
       toast(`Background removal failed: ${(e as Error).message}`, 'error')
@@ -621,6 +624,19 @@ export default function Inspector(): JSX.Element | null {
                 value={layer.filters?.contrast ?? 0}
                 onChange={(e) =>
                   set({ filters: { ...layer.filters, contrast: Number(e.target.value) } })
+                }
+                className="w-full"
+              />
+            </Row>
+            <Row label="Saturation">
+              <input
+                type="range"
+                min={-2}
+                max={2}
+                step={0.1}
+                value={layer.filters?.saturation ?? 0}
+                onChange={(e) =>
+                  set({ filters: { ...layer.filters, saturation: Number(e.target.value) } })
                 }
                 className="w-full"
               />

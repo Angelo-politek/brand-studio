@@ -24,7 +24,8 @@ export async function artboardBytes(
   stage: Konva.Stage,
   canvas: CanvasSpec,
   format: ExportFmt,
-  scale: number
+  scale: number,
+  quality = 0.92
 ): Promise<Uint8Array> {
   if (format === 'pdf') {
     const url = renderToDataUrl(stage, canvas, scale, 'image/png', 1, false)
@@ -35,7 +36,7 @@ export async function artboardBytes(
     return pdf.save()
   }
   const transparent = format === 'png' && canvas.background === 'transparent'
-  const url = renderToDataUrl(stage, canvas, scale, mimeFor(format), 0.92, transparent)
+  const url = renderToDataUrl(stage, canvas, scale, mimeFor(format), quality, transparent)
   return dataUrlToBytes(url)
 }
 
@@ -128,9 +129,10 @@ export async function exportArtboard(opts: {
   name: string
   projectId: string | null
   brandId: string | null
+  quality?: number
 }): Promise<ExportRecord> {
-  const { stage, canvas, format, scale, name } = opts
-  const bytes = await artboardBytes(stage, canvas, format, scale)
+  const { stage, canvas, format, scale, name, quality } = opts
+  const bytes = await artboardBytes(stage, canvas, format, scale, quality)
 
   return window.api.exports.save({
     projectId: opts.projectId,
@@ -138,6 +140,6 @@ export async function exportArtboard(opts: {
     format,
     filename: `${sanitize(name)}.${format}`,
     bytes,
-    settings: { scale }
+    settings: { scale, ...(quality != null ? { quality } : {}) }
   })
 }

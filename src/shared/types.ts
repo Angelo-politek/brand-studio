@@ -128,6 +128,11 @@ export interface Layer {
   opacity: number
   visible: boolean
   locked: boolean
+  /**
+   * Flat grouping: layers sharing a groupId select/move together. The array
+   * stays flat (no nesting) so undo, export and z-order paths are untouched.
+   */
+  groupId?: string
 
   // text
   text?: string

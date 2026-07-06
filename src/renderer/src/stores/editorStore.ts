@@ -41,6 +41,10 @@ interface EditorState {
   select: (id: string | null) => void
   toggleSelect: (id: string) => void
   setSelection: (ids: string[]) => void
+  /** Assign a shared groupId to the current multi-selection. */
+  groupSelected: () => void
+  /** Remove group membership from the selected layers. */
+  ungroupSelected: () => void
   removeSelected: () => void
   duplicateSelected: () => void
   nudgeSelected: (dx: number, dy: number) => void
@@ -69,13 +73,36 @@ interface EditorState {
 }
 
 function clone(layers: Layer[], offset = 24): Layer[] {
-  return layers.map((l) => ({
-    ...structuredClone(l),
-    id: uuid(),
-    name: `${l.name} copy`,
-    x: l.x + offset,
-    y: l.y + offset
-  }))
+  // Duplicated members of a group get a NEW shared group, not the original.
+  const groupMap = new Map<string, string>()
+  return layers.map((l) => {
+    let groupId = l.groupId
+    if (groupId) {
+      if (!groupMap.has(groupId)) groupMap.set(groupId, uuid())
+      groupId = groupMap.get(groupId)
+    }
+    return {
+      ...structuredClone(l),
+      id: uuid(),
+      groupId,
+      name: `${l.name} copy`,
+      x: l.x + offset,
+      y: l.y + offset
+    }
+  })
+}
+
+/**
+ * Expand a selection so that picking any member of a group selects the whole
+ * group (flat groupId model).
+ */
+export function expandToGroups(ids: string[], layers: Layer[]): string[] {
+  const groups = new Set<string>()
+  for (const l of layers) if (l.groupId && ids.includes(l.id)) groups.add(l.groupId)
+  if (groups.size === 0) return ids
+  const out = new Set(ids)
+  for (const l of layers) if (l.groupId && groups.has(l.groupId)) out.add(l.id)
+  return [...out]
 }
 
 /** Sync pages array with current layers/canvas for the active page. */
@@ -196,14 +223,41 @@ export const useEditorStore = create<EditorState>()(
           return { layers, pages: syncPages(s.pages, s.activePageId, s.canvas, layers) }
         }),
 
-      select: (id) => set({ selectedIds: id ? [id] : [], cropMode: null }),
-      toggleSelect: (id) =>
+      select: (id) =>
         set((s) => ({
-          selectedIds: s.selectedIds.includes(id)
-            ? s.selectedIds.filter((x) => x !== id)
-            : [...s.selectedIds, id]
+          selectedIds: id ? expandToGroups([id], s.layers) : [],
+          cropMode: null
         })),
-      setSelection: (ids) => set({ selectedIds: ids }),
+      toggleSelect: (id) =>
+        set((s) => {
+          // Toggle the whole group when the layer belongs to one.
+          const unit = expandToGroups([id], s.layers)
+          const isOn = unit.every((u) => s.selectedIds.includes(u))
+          return {
+            selectedIds: isOn
+              ? s.selectedIds.filter((x) => !unit.includes(x))
+              : [...new Set([...s.selectedIds, ...unit])]
+          }
+        }),
+      setSelection: (ids) => set((s) => ({ selectedIds: expandToGroups(ids, s.layers) })),
+
+      groupSelected: () =>
+        set((s) => {
+          if (s.selectedIds.length < 2) return {}
+          const gid = uuid()
+          const layers = s.layers.map((l) =>
+            s.selectedIds.includes(l.id) ? { ...l, groupId: gid } : l
+          )
+          return { layers, pages: syncPages(s.pages, s.activePageId, s.canvas, layers) }
+        }),
+
+      ungroupSelected: () =>
+        set((s) => {
+          const layers = s.layers.map((l) =>
+            s.selectedIds.includes(l.id) ? { ...l, groupId: undefined } : l
+          )
+          return { layers, pages: syncPages(s.pages, s.activePageId, s.canvas, layers) }
+        }),
 
       removeSelected: () =>
         set((s) => {

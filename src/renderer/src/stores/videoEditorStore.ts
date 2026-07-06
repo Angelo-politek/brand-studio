@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { temporal } from 'zundo'
 import { v4 as uuid } from 'uuid'
+import { expandToGroups } from './editorStore'
 import type {
   AudioTrack,
   CanvasSpec,
@@ -64,6 +65,8 @@ interface VideoEditorState {
   select: (id: string | null) => void
   toggleSelect: (id: string) => void
   setSelection: (ids: string[]) => void
+  groupSelected: () => void
+  ungroupSelected: () => void
   removeSelected: () => void
   duplicateSelected: () => void
   nudgeSelected: (dx: number, dy: number) => void
@@ -287,14 +290,40 @@ export const useVideoEditorStore = create<VideoEditorState>()(
           return { layers, scenes: syncScenes(s.scenes, s.activeSceneId, s.canvas, layers) }
         }),
 
-      select: (id) => set({ selectedIds: id ? [id] : [], cropMode: null }),
-      toggleSelect: (id) =>
+      select: (id) =>
         set((s) => ({
-          selectedIds: s.selectedIds.includes(id)
-            ? s.selectedIds.filter((x) => x !== id)
-            : [...s.selectedIds, id]
+          selectedIds: id ? expandToGroups([id], s.layers) : [],
+          cropMode: null
         })),
-      setSelection: (ids) => set({ selectedIds: ids }),
+      toggleSelect: (id) =>
+        set((s) => {
+          const unit = expandToGroups([id], s.layers)
+          const isOn = unit.every((u) => s.selectedIds.includes(u))
+          return {
+            selectedIds: isOn
+              ? s.selectedIds.filter((x) => !unit.includes(x))
+              : [...new Set([...s.selectedIds, ...unit])]
+          }
+        }),
+      setSelection: (ids) => set((s) => ({ selectedIds: expandToGroups(ids, s.layers) })),
+
+      groupSelected: () =>
+        set((s) => {
+          if (s.selectedIds.length < 2) return {}
+          const gid = uuid()
+          const layers = s.layers.map((l) =>
+            s.selectedIds.includes(l.id) ? { ...l, groupId: gid } : l
+          )
+          return { layers, scenes: syncScenes(s.scenes, s.activeSceneId, s.canvas, layers) }
+        }),
+
+      ungroupSelected: () =>
+        set((s) => {
+          const layers = s.layers.map((l) =>
+            s.selectedIds.includes(l.id) ? { ...l, groupId: undefined } : l
+          )
+          return { layers, scenes: syncScenes(s.scenes, s.activeSceneId, s.canvas, layers) }
+        }),
 
       removeSelected: () =>
         set((s) => {

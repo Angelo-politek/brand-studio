@@ -8,6 +8,19 @@ const brand = {
   fonts: [{ role: 'heading', family: 'Poppins' }]
 } as unknown as Brand
 
+const fullBrand = {
+  id: 'b2',
+  colors: [
+    { id: 'c1', role: 'primary', hex: '#ff0000' },
+    { id: 'c2', role: 'secondary', hex: '#00ff00' },
+    { id: 'c3', role: 'accent', hex: '#0000ff' }
+  ],
+  fonts: [
+    { role: 'heading', family: 'Poppins' },
+    { role: 'body', family: 'Inter' }
+  ]
+} as unknown as Brand
+
 function layer(partial: Partial<Layer>): Layer {
   return {
     id: 'l',
@@ -51,5 +64,35 @@ describe('applyBrandToLayers', () => {
     const img = layer({ type: 'image', src: 'x' })
     const [out] = applyBrandToLayers([img], brand)
     expect(out).toEqual(img)
+  })
+
+  it('title gets heading font, other text gets body font', () => {
+    const [title, bodyText] = applyBrandToLayers(
+      [
+        layer({ type: 'text', fontSize: 64, fontFamily: 'Arial' }),
+        layer({ type: 'text', fontSize: 24, fontFamily: 'Arial' })
+      ],
+      fullBrand
+    )
+    expect(title.fontFamily).toBe('Poppins')
+    expect(bodyText.fontFamily).toBe('Inter')
+  })
+
+  it('uses secondary for shapes and accent for lines when available', () => {
+    const [shape, line] = applyBrandToLayers(
+      [layer({ type: 'rect', fill: '#000' }), layer({ type: 'line', strokeColor: '#000' })],
+      fullBrand
+    )
+    expect(shape.fill).toBe('#00ff00')
+    expect(line.strokeColor).toBe('#0000ff')
+  })
+
+  it('single-color brands fall back to primary everywhere', () => {
+    const [shape, line] = applyBrandToLayers(
+      [layer({ type: 'rect', fill: '#000' }), layer({ type: 'line', strokeColor: '#000' })],
+      brand
+    )
+    expect(shape.fill).toBe('#ff0000')
+    expect(line.strokeColor).toBe('#ff0000')
   })
 })

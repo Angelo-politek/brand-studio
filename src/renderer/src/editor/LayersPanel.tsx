@@ -43,16 +43,30 @@ export default function LayersPanel(): JSX.Element {
     updateLayer,
     removeLayer,
     duplicateLayer,
-    moveLayer
+    moveLayer,
+    groupSelected,
+    ungroupSelected
   } = useStore()
 
   // Display topmost first (array end = top z-order).
   const ordered = [...layers].reverse()
+  const selected = layers.filter((l) => selectedIds.includes(l.id))
+  const canGroup = selected.length >= 2
+  const canUngroup = selected.some((l) => l.groupId)
 
   return (
     <div className="flex flex-col min-h-0">
-      <div className="px-3 py-2 text-xs font-medium text-ink-muted border-b border-line">
-        Layers
+      <div className="px-3 py-2 text-xs font-medium text-ink-muted border-b border-line flex items-center justify-between">
+        <span>Layers</span>
+        {(canGroup || canUngroup) && (
+          <button
+            onClick={() => (canUngroup ? ungroupSelected() : groupSelected())}
+            className="text-[11px] text-ink-faint hover:text-accent flex items-center gap-1"
+            title={canUngroup ? 'Ungroup (Ctrl+Shift+G)' : 'Group selection (Ctrl+G)'}
+          >
+            <GroupIcon size={12} /> {canUngroup ? 'Ungroup' : 'Group'}
+          </button>
+        )}
       </div>
       <div className="flex-1 overflow-y-auto p-1.5 space-y-0.5">
         {ordered.length === 0 && (
@@ -70,6 +84,9 @@ export default function LayersPanel(): JSX.Element {
                 active ? 'bg-surface-3' : 'hover:bg-surface-2'
               )}
             >
+              {layer.groupId && (
+                <GroupIcon size={11} className="shrink-0 text-accent/70 -mr-1" />
+              )}
               <Icon size={14} className="shrink-0 text-ink-faint" />
               <span className={cn('flex-1 truncate text-xs', !layer.visible && 'opacity-40')}>
                 {layer.name}

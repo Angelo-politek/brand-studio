@@ -17,6 +17,8 @@ interface HotkeyStore {
     paste: () => void
     select: (id: string | null) => void
     setZoom: (z: number) => void
+    groupSelected: () => void
+    ungroupSelected: () => void
   }
   temporal: { getState: () => { undo: () => void; redo: () => void } }
 }
@@ -56,6 +58,15 @@ export function useEditorHotkeys(store: HotkeyStore = useEditorStore as HotkeySt
   })
 
   useHotkeys('escape', () => store.getState().select(null))
+
+  useHotkeys('mod+g', (e) => {
+    e.preventDefault()
+    store.getState().groupSelected()
+  })
+  useHotkeys('mod+shift+g', (e) => {
+    e.preventDefault()
+    store.getState().ungroupSelected()
+  })
 
   useHotkeys('mod+0', (e) => {
     e.preventDefault()

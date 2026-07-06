@@ -475,7 +475,30 @@ export default function EditorCanvas({
                     isSelected: selectedIds.includes(rawLayer.id),
                     onSelect: (additive) =>
                       additive ? toggleSelect(rawLayer.id) : select(rawLayer.id),
-                    onChange: (patch) => updateLayer(rawLayer.id, patch),
+                    onChange: (patch) => {
+                      // Dragging one member of a multi-selection (e.g. a group)
+                      // moves the others by the same delta.
+                      const px = patch.x
+                      const py = patch.y
+                      const isPureMove =
+                        typeof px === 'number' &&
+                        typeof py === 'number' &&
+                        Object.keys(patch).length === 2
+                      if (isPureMove && selectedIds.length > 1 && selectedIds.includes(rawLayer.id)) {
+                        const dx = (px as number) - rawLayer.x
+                        const dy = (py as number) - rawLayer.y
+                        updateLayer(rawLayer.id, patch)
+                        if (dx !== 0 || dy !== 0) {
+                          for (const other of layers) {
+                            if (other.id !== rawLayer.id && selectedIds.includes(other.id)) {
+                              updateLayer(other.id, { x: other.x + dx, y: other.y + dy })
+                            }
+                          }
+                        }
+                        return
+                      }
+                      updateLayer(rawLayer.id, patch)
+                    },
                     snap: showGrid,
                     gridSize,
                     onDragMove: handleDragMove,

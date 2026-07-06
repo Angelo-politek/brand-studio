@@ -12,6 +12,7 @@ import {
   type ExportFmt
 } from '@renderer/editor/exportArtboard'
 import { toast } from '@renderer/stores/uiStore'
+import { useCurrentBrand } from '@renderer/stores/brandStore'
 import type { ExportRecord } from '@shared/types'
 
 const FORMATS: ExportFmt[] = ['png', 'jpg', 'webp', 'pdf']
@@ -22,8 +23,10 @@ const nextFrame = (): Promise<void> =>
 
 export default function ExportDialog({ onClose }: { onClose: () => void }): JSX.Element {
   const { canvas, name, projectId, brandId, pages } = useEditorStore()
+  const brand = useCurrentBrand()
   const [format, setFormat] = useState<ExportFmt>('png')
   const [scale, setScale] = useState(2)
+  const [quality, setQuality] = useState(0.92)
   const [allPages, setAllPages] = useState(false)
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState<ExportRecord | null>(null)
@@ -32,6 +35,17 @@ export default function ExportDialog({ onClose }: { onClose: () => void }): JSX.
   const multiPage = pages.length > 1
   const outW = Math.round(canvas.width * (format === 'pdf' ? 1 : scale))
   const outH = Math.round(canvas.height * (format === 'pdf' ? 1 : scale))
+  const presets = (brand?.presets ?? []).filter((p) =>
+    (FORMATS as string[]).includes(p.format as string)
+  )
+
+  function applyPreset(presetId: string): void {
+    const p = presets.find((x) => x.id === presetId)
+    if (!p) return
+    setFormat(p.format as ExportFmt)
+    if (p.scale) setScale(p.scale)
+    if (p.quality != null) setQuality(p.quality > 1 ? p.quality / 100 : p.quality)
+  }
 
   async function run(): Promise<void> {
     const stage = getStage()
@@ -49,7 +63,8 @@ export default function ExportDialog({ onClose }: { onClose: () => void }): JSX.
         scale: format === 'pdf' ? 1 : scale,
         name,
         projectId,
-        brandId
+        brandId,
+        quality
       })
       setDone(record)
     } catch (e) {
@@ -108,7 +123,13 @@ export default function ExportDialog({ onClose }: { onClose: () => void }): JSX.
           if (n) toast(`Saved ${n} page(s).`, 'success')
         }
       } else {
-        const bytes = await artboardBytes(stage, canvas, format, format === 'pdf' ? 1 : scale)
+        const bytes = await artboardBytes(
+          stage,
+          canvas,
+          format,
+          format === 'pdf' ? 1 : scale,
+          quality
+        )
         const saved = await saveBytesAs(bytes, name, format)
         if (saved) toast('Saved.', 'success')
       }
@@ -154,6 +175,23 @@ export default function ExportDialog({ onClose }: { onClose: () => void }): JSX.
           </div>
         ) : (
           <div className="p-5 space-y-4">
+            {presets.length > 0 && (
+              <div>
+                <label className="block text-xs text-ink-faint mb-2">Brand presets</label>
+                <div className="flex flex-wrap gap-2">
+                  {presets.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => applyPreset(p.id)}
+                      className="btn bg-surface-3 text-ink-muted hover:text-ink py-1.5 px-3 text-xs"
+                      title={`${p.format.toUpperCase()}${p.scale ? ` ${p.scale}×` : ''}`}
+                    >
+                      {p.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div>
               <label className="block text-xs text-ink-faint mb-2">Format</label>
               <div className="grid grid-cols-4 gap-2">
@@ -189,6 +227,23 @@ export default function ExportDialog({ onClose }: { onClose: () => void }): JSX.
                     </button>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {(format === 'jpg' || format === 'webp') && (
+              <div>
+                <label className="block text-xs text-ink-faint mb-2">
+                  Quality · {Math.round(quality * 100)}%
+                </label>
+                <input
+                  type="range"
+                  min={0.4}
+                  max={1}
+                  step={0.02}
+                  value={quality}
+                  onChange={(e) => setQuality(Number(e.target.value))}
+                  className="w-full"
+                />
               </div>
             )}
 

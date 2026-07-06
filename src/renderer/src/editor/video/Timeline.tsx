@@ -1,5 +1,17 @@
-import { useRef, useState } from 'react'
-import { Plus, Copy, Trash2, Film, Music, ArrowRightLeft, Volume2, VolumeX } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { mediaUrl } from '@shared/ipc'
+import { getWaveform, drawWaveform } from '@renderer/lib/waveform'
+import {
+  Plus,
+  Copy,
+  Trash2,
+  Film,
+  Music,
+  ArrowRightLeft,
+  Volume2,
+  VolumeX,
+  Scissors
+} from 'lucide-react'
 import { useVideoEditorStore } from '@renderer/stores/videoEditorStore'
 import { cn } from '@renderer/lib/cn'
 import type { SceneTransitionType } from '@shared/types'
@@ -40,6 +52,7 @@ export default function Timeline({
     setSceneDuration,
     setSceneTransition,
     reorderScene,
+    splitSceneAtPlayhead,
     updateClip,
     setAudio,
     seekGlobal,
@@ -144,6 +157,13 @@ export default function Timeline({
             title="Set background music"
           >
             <Music size={13} /> Music
+          </button>
+          <button
+            onClick={() => splitSceneAtPlayhead()}
+            className="btn-surface text-xs px-2 py-1"
+            title="Split the active scene at the playhead"
+          >
+            <Scissors size={13} /> Split
           </button>
         </div>
       </div>
@@ -343,8 +363,9 @@ export default function Timeline({
         <Music size={13} className="text-ink-faint shrink-0" />
         {audio ? (
           <>
-            <div className="flex-1 h-5 rounded bg-accent/15 border border-accent/40 flex items-center px-2">
-              <span className="text-[10px] text-ink-muted truncate">
+            <div className="flex-1 h-6 rounded bg-accent/10 border border-accent/40 relative overflow-hidden">
+              <AudioWaveStrip src={audio.src} inMs={audio.inMs} />
+              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-ink-muted truncate max-w-[50%] bg-surface-1/70 px-1 rounded">
                 {audio.src.split(/[/\\]/).pop()}
               </span>
             </div>
@@ -374,4 +395,21 @@ export default function Timeline({
       </div>
     </div>
   )
+}
+
+/** Waveform strip for the music lane (decoded once per src, cached). */
+function AudioWaveStrip({ src, inMs }: { src: string; inMs: number }): JSX.Element {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  useEffect(() => {
+    let alive = true
+    void getWaveform(mediaUrl(src)).then((wf) => {
+      const c = canvasRef.current
+      if (!alive || !wf || !c) return
+      drawWaveform(c, wf, 'rgba(249, 115, 22, 0.75)', inMs)
+    })
+    return () => {
+      alive = false
+    }
+  }, [src, inMs])
+  return <canvas ref={canvasRef} width={960} height={24} className="absolute inset-0 w-full h-full" />
 }

@@ -8,8 +8,14 @@ import { confirmDialog } from '@renderer/stores/uiStore'
 import { mediaUrl } from '@shared/ipc'
 import { VIDEO_PRESETS } from '@renderer/lib/presets'
 import { REEL_TEMPLATES } from '@renderer/lib/reelTemplates'
+import {
+  listUserReelTemplates,
+  deleteUserReelTemplate,
+  instantiateUserReelTemplate,
+  type UserReelTemplate
+} from '@renderer/lib/userReelTemplates'
 import { cn } from '@renderer/lib/cn'
-import type { VideoScene } from '@shared/types'
+import type { AudioTrack, VideoScene } from '@shared/types'
 
 function formatDuration(scenesMs: number): string {
   const sec = scenesMs / 1000
@@ -18,22 +24,51 @@ function formatDuration(scenesMs: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-/** "New reel" dialog: pick a format and a starter template (or blank). */
+/** "New reel" dialog: pick a format and a starter or saved template. */
 function NewReelDialog({
   onClose,
   onCreate
 }: {
   onClose: () => void
-  onCreate: (input: { name: string; width: number; height: number; scenes: VideoScene[] }) => void
+  onCreate: (input: {
+    name: string
+    width: number
+    height: number
+    scenes: VideoScene[]
+    audio?: AudioTrack | null
+  }) => void
 }): JSX.Element {
   const [selected, setSelected] = useState(VIDEO_PRESETS[0])
   const [templateId, setTemplateId] = useState(REEL_TEMPLATES[0].id)
   const [name, setName] = useState('Untitled reel')
+  const [userTemplates, setUserTemplates] = useState<UserReelTemplate[]>([])
+
+  useEffect(() => {
+    void listUserReelTemplates().then(setUserTemplates)
+  }, [])
+
+  async function removeUserTemplate(e: React.MouseEvent, id: string): Promise<void> {
+    e.stopPropagation()
+    if (!(await confirmDialog('Delete this saved template?'))) return
+    await deleteUserReelTemplate(id)
+    setUserTemplates(await listUserReelTemplates())
+    if (templateId === `user:${id}`) setTemplateId(REEL_TEMPLATES[0].id)
+  }
 
   function submit(): void {
+    const finalName = name.trim() || 'Untitled reel'
+    if (templateId.startsWith('user:')) {
+      const tpl = userTemplates.find((t) => `user:${t.id}` === templateId)
+      if (tpl) {
+        // Saved templates carry their own size and (optional) music track.
+        const inst = instantiateUserReelTemplate(tpl)
+        onCreate({ name: finalName, ...inst })
+        return
+      }
+    }
     const tpl = REEL_TEMPLATES.find((t) => t.id === templateId) ?? REEL_TEMPLATES[0]
     onCreate({
-      name: name.trim() || 'Untitled reel',
+      name: finalName,
       width: selected.width,
       height: selected.height,
       scenes: tpl.build(selected.width, selected.height)
@@ -108,6 +143,43 @@ function NewReelDialog({
             </div>
           </div>
 
+          {/* Saved templates (from the video editor's "Save as template") */}
+          {userTemplates.length > 0 && (
+            <div>
+              <div className="text-xs text-ink-faint mb-2">Your templates</div>
+              <div className="grid grid-cols-2 gap-2">
+                {userTemplates.map((t) => {
+                  const key = `user:${t.id}`
+                  const active = templateId === key
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => setTemplateId(key)}
+                      className={cn(
+                        'group/tpl relative card p-3 text-left hover:border-accent/60',
+                        active && 'border-accent'
+                      )}
+                    >
+                      <div className="text-sm font-medium truncate pr-5">{t.name}</div>
+                      <div className="text-[11px] text-ink-faint mt-0.5">
+                        {t.width}×{t.height} · {t.scenes.length} scene
+                        {t.scenes.length === 1 ? '' : 's'}
+                        {t.audio ? ' · music' : ''}
+                      </div>
+                      <span
+                        onClick={(e) => void removeUserTemplate(e, t.id)}
+                        className="absolute top-2 right-2 text-ink-faint hover:text-red-400 opacity-0 group-hover/tpl:opacity-100"
+                        title="Delete template"
+                      >
+                        <Trash2 size={12} />
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
           <div>
             <label className="block text-xs text-ink-faint mb-1">Name</label>
             <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
@@ -130,7 +202,7 @@ export default function VideoProjects(): JSX.Element {
   const brand = useCurrentBrand()
   const brandId = brand?.id ?? ''
   const navigate = useNavigate()
-  const { projects, load, create, remove } = useVideoStore()
+  const { projects, load, create, update, remove } = useVideoStore()
   const [dialogOpen, setDialogOpen] = useState(false)
 
   const refresh = useCallback(async () => {
@@ -146,6 +218,7 @@ export default function VideoProjects(): JSX.Element {
     width: number
     height: number
     scenes: VideoScene[]
+    audio?: AudioTrack | null
   }): Promise<void> {
     setDialogOpen(false)
     const vp = await create({
@@ -155,6 +228,7 @@ export default function VideoProjects(): JSX.Element {
       height: input.height,
       scenes: input.scenes
     })
+    if (input.audio) await update({ ...vp, audio: input.audio })
     navigate(`/app/video/${vp.id}`)
   }
 

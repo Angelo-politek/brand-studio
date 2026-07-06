@@ -23,6 +23,20 @@ const INTENSITY_OPTIONS: { value: ReelIntensity; label: string }[] = [
   { value: 'punchy', label: 'Energico' }
 ]
 
+/** Output format presets: null size = keep the design's own canvas size. */
+const FORMAT_OPTIONS: {
+  value: string
+  label: string
+  hint: string
+  size: { width: number; height: number } | null
+}[] = [
+  { value: 'keep', label: 'Mantieni foglio', hint: 'Stesse dimensioni del design', size: null },
+  { value: '9x16', label: 'Reel 9:16', hint: '1080×1920 · Reel/TikTok/Shorts', size: { width: 1080, height: 1920 } },
+  { value: '1x1', label: 'Quadrato 1:1', hint: '1080×1080 · Feed', size: { width: 1080, height: 1080 } },
+  { value: '4x5', label: 'Verticale 4:5', hint: '1080×1350 · Feed verticale', size: { width: 1080, height: 1350 } },
+  { value: '16x9', label: 'Orizzontale 16:9', hint: '1920×1080 · YouTube', size: { width: 1920, height: 1080 } }
+]
+
 interface BeatState extends BeatAnalysis {
   loading: boolean
 }
@@ -41,7 +55,7 @@ export default function ConvertToReelDialog({ onClose }: { onClose: () => void }
   const brandId = useEditorStore((s) => s.brandId)
   const projectName = useEditorStore((s) => s.name)
 
-  const [fit, setFit] = useState<ReelFit>('fit9x16')
+  const [format, setFormat] = useState('9x16')
   const [intensity, setIntensity] = useState<ReelIntensity>('normal')
   const [wpm, setWpm] = useState(220)
   const [syncToBeat, setSyncToBeat] = useState(true)
@@ -78,7 +92,9 @@ export default function ConvertToReelDialog({ onClose }: { onClose: () => void }
     if (asset) void analyze(asset)
   }
 
-  const target = fit === 'fit9x16' ? { width: 1080, height: 1920 } : null
+  const target = FORMAT_OPTIONS.find((f) => f.value === format)?.size ?? null
+  // Any fixed-size format reuses the generic scale-into-frame fit.
+  const fit: ReelFit = target ? 'fit9x16' : 'keep'
 
   async function convert(): Promise<void> {
     if (!brandId) {
@@ -180,27 +196,20 @@ export default function ConvertToReelDialog({ onClose }: { onClose: () => void }
           {/* Format */}
           <div>
             <div className="text-xs text-ink-faint mb-2">Formato</div>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => setFit('keep')}
-                className={cn(
-                  'card p-3 text-left hover:border-accent/60',
-                  fit === 'keep' && 'border-accent'
-                )}
-              >
-                <div className="text-sm font-medium">Mantieni foglio</div>
-                <div className="text-[11px] text-ink-faint mt-0.5">Stesse dimensioni del design</div>
-              </button>
-              <button
-                onClick={() => setFit('fit9x16')}
-                className={cn(
-                  'card p-3 text-left hover:border-accent/60',
-                  fit === 'fit9x16' && 'border-accent'
-                )}
-              >
-                <div className="text-sm font-medium">Reel 9:16</div>
-                <div className="text-[11px] text-ink-faint mt-0.5">1080×1920 verticale</div>
-              </button>
+            <div className="grid grid-cols-2 gap-2">
+              {FORMAT_OPTIONS.map((f) => (
+                <button
+                  key={f.value}
+                  onClick={() => setFormat(f.value)}
+                  className={cn(
+                    'card p-3 text-left hover:border-accent/60',
+                    format === f.value && 'border-accent'
+                  )}
+                >
+                  <div className="text-sm font-medium">{f.label}</div>
+                  <div className="text-[11px] text-ink-faint mt-0.5">{f.hint}</div>
+                </button>
+              ))}
             </div>
           </div>
 

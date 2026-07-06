@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { animateLayer } from '@renderer/lib/videoAnim'
+import { animateLayer, ease, sceneTransitionState } from '@renderer/lib/videoAnim'
 import type { Layer, LayerAnimation } from '@shared/types'
 
 function layer(anim?: LayerAnimation): Layer {
@@ -68,5 +68,69 @@ describe('animateLayer — new effects', () => {
     const snapshot = JSON.stringify(l)
     animateLayer(l, 200, 3000)
     expect(JSON.stringify(l)).toBe(snapshot)
+  })
+
+  it('directional slides start offset and settle in place', () => {
+    const down = animateLayer(layer({ in: 'slideDown', durationMs: 500 }), 0, 3000)
+    expect(down.y).toBeLessThan(100) // enters from above
+    const right = animateLayer(layer({ in: 'slideRight', durationMs: 500 }), 0, 3000)
+    expect(right.x).toBeLessThan(100) // enters from the left
+    const settled = animateLayer(layer({ in: 'slideDown', durationMs: 500 }), 600, 3000)
+    expect(settled.y).toBe(100)
+  })
+
+  it('popOut exit shrinks and fades at the scene end', () => {
+    const l = layer({ out: 'popOut', durationMs: 500 })
+    const end = animateLayer(l, 3000, 3000)
+    expect(end.opacity).toBeCloseTo(0, 5)
+    expect(end.scaleX).toBeCloseTo(0.7, 5)
+    const before = animateLayer(l, 2000, 3000)
+    expect(before.opacity).toBe(1)
+  })
+})
+
+describe('ease', () => {
+  it('is identity at the endpoints for every curve', () => {
+    for (const e of ['linear', 'easeIn', 'easeOut', 'easeInOut'] as const) {
+      expect(ease(0, e)).toBe(0)
+      expect(ease(1, e)).toBe(1)
+    }
+  })
+
+  it('easeIn is slower and easeOut faster at the midpoint', () => {
+    expect(ease(0.5, 'easeIn')).toBeLessThan(0.5)
+    expect(ease(0.5, 'easeOut')).toBeGreaterThan(0.5)
+    expect(ease(0.5, 'easeInOut')).toBeCloseTo(0.5, 5)
+  })
+
+  it('easing shapes the enter ramp of animateLayer', () => {
+    const linear = animateLayer(layer({ in: 'fadeIn', durationMs: 1000 }), 500, 3000)
+    const eased = animateLayer(
+      layer({ in: 'fadeIn', durationMs: 1000, easing: 'easeIn' }),
+      500,
+      3000
+    )
+    expect(eased.opacity).toBeLessThan(linear.opacity)
+  })
+})
+
+describe('sceneTransitionState', () => {
+  it('is identity without a transition or past its window', () => {
+    expect(sceneTransitionState(undefined, 100, 1080, 1920).opacity).toBe(1)
+    expect(sceneTransitionState({ type: 'fade', durationMs: 400 }, 500, 1080, 1920).dx).toBe(0)
+    expect(sceneTransitionState({ type: 'fade', durationMs: 400 }, 500, 1080, 1920).opacity).toBe(1)
+  })
+
+  it('fade ramps opacity over the window', () => {
+    const t = sceneTransitionState({ type: 'fade', durationMs: 400 }, 200, 1080, 1920)
+    expect(t.opacity).toBeCloseTo(0.5, 5)
+    expect(t.dx).toBe(0)
+  })
+
+  it('slides displace by the full canvas size (xfade semantics)', () => {
+    const left = sceneTransitionState({ type: 'slideLeft', durationMs: 400 }, 0, 1080, 1920)
+    expect(left.dx).toBe(1080)
+    const up = sceneTransitionState({ type: 'slideUp', durationMs: 400 }, 200, 1080, 1920)
+    expect(up.dy).toBeCloseTo(960, 5)
   })
 })

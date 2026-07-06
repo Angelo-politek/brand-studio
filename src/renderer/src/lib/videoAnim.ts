@@ -1,4 +1,19 @@
-import type { Layer, SceneTransition } from '@shared/types'
+import type { Layer, LayerAnimationEasing, SceneTransition } from '@shared/types'
+
+/** Standard easing curves for enter/exit progress (0..1 → 0..1). */
+export function ease(p: number, easing?: LayerAnimationEasing): number {
+  const t = Math.max(0, Math.min(1, p))
+  switch (easing) {
+    case 'easeIn':
+      return t * t
+    case 'easeOut':
+      return 1 - (1 - t) * (1 - t)
+    case 'easeInOut':
+      return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2
+    default:
+      return t
+  }
+}
 
 /**
  * How the incoming scene is displaced/faded during its enter transition, in
@@ -64,13 +79,15 @@ export function animateLayer(layer: Layer, playheadMs: number, sceneDurationMs: 
 
   let progressIn = 1 // 0 = start of enter, 1 = fully in
   if (anim.in && anim.in !== 'none') {
-    progressIn = Math.max(0, Math.min(1, tIn / d))
+    progressIn = ease(Math.max(0, Math.min(1, tIn / d)), anim.easing)
   }
 
   let progressOut = 1 // 1 = not yet leaving, 0 = fully out
   if (anim.out && anim.out !== 'none') {
     const outStart = sceneDurationMs - d
-    progressOut = playheadMs < outStart ? 1 : Math.max(0, 1 - (playheadMs - outStart) / d)
+    const raw = playheadMs < outStart ? 1 : Math.max(0, 1 - (playheadMs - outStart) / d)
+    // Ease the "how far out" direction so the curve shape matches the enter.
+    progressOut = 1 - ease(1 - raw, anim.easing)
   }
 
   let opacity = layer.opacity
@@ -87,6 +104,18 @@ export function animateLayer(layer: Layer, playheadMs: number, sceneDurationMs: 
     case 'slideUp':
       opacity *= progressIn
       y += (1 - progressIn) * 60
+      break
+    case 'slideDown':
+      opacity *= progressIn
+      y -= (1 - progressIn) * 60
+      break
+    case 'slideLeft':
+      opacity *= progressIn
+      x += (1 - progressIn) * 60
+      break
+    case 'slideRight':
+      opacity *= progressIn
+      x -= (1 - progressIn) * 60
       break
     case 'pop': {
       opacity *= progressIn
@@ -141,8 +170,29 @@ export function animateLayer(layer: Layer, playheadMs: number, sceneDurationMs: 
       break
   }
 
-  // Exit (fade only for now)
-  if (anim.out === 'fadeOut') opacity *= progressOut
+  // Exit
+  switch (anim.out) {
+    case 'fadeOut':
+      opacity *= progressOut
+      break
+    case 'slideDownOut':
+      opacity *= progressOut
+      y += (1 - progressOut) * 60
+      break
+    case 'slideUpOut':
+      opacity *= progressOut
+      y -= (1 - progressOut) * 60
+      break
+    case 'popOut': {
+      opacity *= progressOut
+      const s = 0.7 + 0.3 * progressOut
+      scaleX *= s
+      scaleY *= s
+      break
+    }
+    default:
+      break
+  }
 
   return { ...layer, opacity, x, y, scaleX, scaleY }
 }

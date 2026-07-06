@@ -88,6 +88,8 @@ interface VideoEditorState {
   renameScene: (id: string, name: string) => void
   setSceneDuration: (id: string, durationMs: number) => void
   reorderScene: (id: string, toIndex: number) => void
+  /** Split the active scene at the current playhead (clip trims follow). */
+  splitSceneAtPlayhead: () => void
   setSceneTransition: (id: string, type: SceneTransitionType, durationMs?: number) => void
 
   // Clip / audio
@@ -113,6 +115,39 @@ function clone(layers: Layer[], offset = 24): Layer[] {
     x: l.x + offset,
     y: l.y + offset
   }))
+}
+
+/**
+ * Split a scene at `atMs` (scene-local time) into two scenes. The first keeps
+ * the id/transition and plays [0, atMs); the second plays the rest, with the
+ * clip trim advanced accordingly (dropped when the clip ends before the cut).
+ * Returns null when the cut would leave a part shorter than 200ms.
+ */
+export function splitSceneParts(scene: VideoScene, atMs: number): [VideoScene, VideoScene] | null {
+  const t = Math.round(atMs)
+  if (t < 200 || scene.durationMs - t < 200) return null
+  const clip = scene.clip
+  const first: VideoScene = {
+    ...structuredClone(scene),
+    durationMs: t,
+    clip: clip
+      ? { ...structuredClone(clip), outMs: Math.min(clip.outMs, clip.inMs + t) }
+      : undefined
+  }
+  const secondClip =
+    clip && clip.inMs + t < clip.outMs
+      ? { ...structuredClone(clip), inMs: clip.inMs + t }
+      : undefined
+  const second: VideoScene = {
+    ...structuredClone(scene),
+    id: uuid(),
+    name: `${scene.name} (2)`,
+    durationMs: scene.durationMs - t,
+    transitionIn: undefined,
+    layers: structuredClone(scene.layers).map((l) => ({ ...l, id: uuid() })),
+    clip: secondClip
+  }
+  return [first, second]
 }
 
 /** Sync the scenes array with the active scene's canvas/layers. */
@@ -469,6 +504,25 @@ export const useVideoEditorStore = create<VideoEditorState>()(
             p.id === id ? { ...p, durationMs: Math.max(200, Math.round(durationMs)) } : p
           )
         })),
+
+      splitSceneAtPlayhead: () =>
+        set((s) => {
+          const idx = s.scenes.findIndex((p) => p.id === s.activeSceneId)
+          if (idx < 0) return {}
+          // Fold any unsynced canvas/layer edits into the scene before cutting.
+          const current = { ...s.scenes[idx], background: s.canvas.background, layers: s.layers }
+          const parts = splitSceneParts(current, s.playheadMs)
+          if (!parts) return {}
+          const scenes = [...s.scenes.slice(0, idx), parts[0], parts[1], ...s.scenes.slice(idx + 1)]
+          return {
+            scenes,
+            activeSceneId: parts[1].id,
+            canvas: sceneCanvas(parts[1], s.width, s.height),
+            layers: parts[1].layers,
+            playheadMs: 0,
+            selectedIds: []
+          }
+        }),
 
       reorderScene: (id, toIndex) =>
         set((s) => {

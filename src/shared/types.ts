@@ -174,10 +174,26 @@ export interface Layer {
   anim?: LayerAnimation
 }
 
+export type LayerAnimationIn =
+  | 'none'
+  | 'fadeIn'
+  | 'slideUp'
+  | 'slideDown'
+  | 'slideLeft'
+  | 'slideRight'
+  | 'pop'
+  | 'flash'
+  | 'pulse'
+  | 'shake'
+export type LayerAnimationOut = 'none' | 'fadeOut' | 'slideDownOut' | 'slideUpOut' | 'popOut'
+export type LayerAnimationEasing = 'linear' | 'easeIn' | 'easeOut' | 'easeInOut'
+
 /** Per-layer enter/exit animation for video overlays. */
 export interface LayerAnimation {
-  in?: 'none' | 'fadeIn' | 'slideUp' | 'pop' | 'flash' | 'pulse' | 'shake'
-  out?: 'none' | 'fadeOut'
+  in?: LayerAnimationIn
+  out?: LayerAnimationOut
+  /** Progress curve applied to enter/exit ramps. Defaults to linear. */
+  easing?: LayerAnimationEasing
   /** Animation duration in milliseconds (applies to both in and out). */
   durationMs?: number
   /**

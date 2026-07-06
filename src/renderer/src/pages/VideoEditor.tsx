@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Play, Pause, Download, Check, Loader2 } from 'lucide-react'
+import { ArrowLeft, Play, Pause, Download, Check, Loader2, LayoutTemplate } from 'lucide-react'
 import { useVideoEditorStore } from '@renderer/stores/videoEditorStore'
 import { useBrandStore } from '@renderer/stores/brandStore'
 import { ensureBrandFonts } from '@renderer/lib/fonts'
@@ -26,7 +26,8 @@ import {
   type ExportScene
 } from '@renderer/lib/python'
 import { mediaUrl } from '@shared/ipc'
-import { toast } from '@renderer/stores/uiStore'
+import { saveUserReelTemplate } from '@renderer/lib/userReelTemplates'
+import { toast, promptDialog } from '@renderer/stores/uiStore'
 import type { Asset, VideoProject } from '@shared/types'
 
 /** Probe a video asset (served via media://) for duration + natural size. */
@@ -395,6 +396,25 @@ export default function VideoEditor(): JSX.Element {
     if (id) void cancelVideoJob(id)
   }
 
+  async function handleSaveAsTemplate(): Promise<void> {
+    const vp = store.getState().toProject()
+    if (vp.scenes.length === 0) return
+    const tplName = await promptDialog('Nome del template', vp.name)
+    if (!tplName) return
+    try {
+      await saveUserReelTemplate({
+        name: tplName,
+        width: vp.width,
+        height: vp.height,
+        scenes: vp.scenes,
+        audio: vp.audio ?? null
+      })
+      toast('Template salvato!', 'success')
+    } catch (err) {
+      toast(`Salvataggio template fallito: ${(err as Error).message}`, 'error')
+    }
+  }
+
   if (!activeScene) {
     return <div className="h-full grid place-items-center text-ink-faint">Loading…</div>
   }
@@ -434,6 +454,13 @@ export default function VideoEditor(): JSX.Element {
                 </>
               )}
             </span>
+            <button
+              onClick={() => void handleSaveAsTemplate()}
+              className="btn-ghost px-2 py-1.5"
+              title="Salva come template riutilizzabile"
+            >
+              <LayoutTemplate size={15} />
+            </button>
             {exporting ? (
               <div className="flex items-center gap-2">
                 <Loader2 size={14} className="animate-spin text-ink-faint" />

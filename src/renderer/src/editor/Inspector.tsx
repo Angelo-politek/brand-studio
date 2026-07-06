@@ -549,56 +549,6 @@ export default function Inspector(): JSX.Element | null {
               <Num value={layer.shadowOffsetY} onChange={(v) => set({ shadowOffsetY: v })} />
             </Row>
 
-            {/* Animation (video editor only) */}
-            {isVideo && (
-              <div className="pt-1 border-t border-line space-y-2">
-                <span className="text-[11px] text-ink-faint font-medium">Animation</span>
-                <Row label="In">
-                  <select
-                    className="input text-xs"
-                    value={layer.anim?.in ?? 'none'}
-                    onChange={(e) =>
-                      set({
-                        anim: {
-                          ...layer.anim,
-                          in: e.target.value as NonNullable<Layer['anim']>['in']
-                        }
-                      })
-                    }
-                  >
-                    <option value="none">None</option>
-                    <option value="fadeIn">Fade in</option>
-                    <option value="slideUp">Slide up</option>
-                    <option value="pop">Pop</option>
-                  </select>
-                </Row>
-                <Row label="Out">
-                  <select
-                    className="input text-xs"
-                    value={layer.anim?.out ?? 'none'}
-                    onChange={(e) =>
-                      set({
-                        anim: {
-                          ...layer.anim,
-                          out: e.target.value as NonNullable<Layer['anim']>['out']
-                        }
-                      })
-                    }
-                  >
-                    <option value="none">None</option>
-                    <option value="fadeOut">Fade out</option>
-                  </select>
-                </Row>
-                <Row label="Duration">
-                  <Num
-                    value={layer.anim?.durationMs ?? 500}
-                    min={100}
-                    step={100}
-                    onChange={(v) => set({ anim: { ...layer.anim, durationMs: v } })}
-                  />
-                </Row>
-              </div>
-            )}
           </>
         )}
 
@@ -879,7 +829,95 @@ export default function Inspector(): JSX.Element | null {
             className="w-full"
           />
         </Row>
+
+        {/* Animation (video editor only, any layer type) */}
+        {isVideo && <AnimSection layer={layer} set={set} />}
       </div>
+    </div>
+  )
+}
+
+/** Enter/exit animation editor, shown for every overlay layer in the video editor. */
+function AnimSection({
+  layer,
+  set
+}: {
+  layer: Layer
+  set: (patch: Partial<Layer>) => void
+}): JSX.Element {
+  const anim = layer.anim
+  return (
+    <div className="pt-1 border-t border-line space-y-2">
+      <span className="text-[11px] text-ink-faint font-medium">Animation</span>
+      <Row label="In">
+        <select
+          className="input text-xs"
+          value={anim?.in ?? 'none'}
+          onChange={(e) =>
+            set({ anim: { ...anim, in: e.target.value as NonNullable<Layer['anim']>['in'] } })
+          }
+        >
+          <option value="none">None</option>
+          <option value="fadeIn">Fade in</option>
+          <option value="slideUp">Slide up</option>
+          <option value="slideDown">Slide down</option>
+          <option value="slideLeft">Slide left</option>
+          <option value="slideRight">Slide right</option>
+          <option value="pop">Pop</option>
+          <option value="flash">Flash</option>
+          <option value="pulse">Pulse</option>
+          <option value="shake">Shake</option>
+        </select>
+      </Row>
+      <Row label="Out">
+        <select
+          className="input text-xs"
+          value={anim?.out ?? 'none'}
+          onChange={(e) =>
+            set({ anim: { ...anim, out: e.target.value as NonNullable<Layer['anim']>['out'] } })
+          }
+        >
+          <option value="none">None</option>
+          <option value="fadeOut">Fade out</option>
+          <option value="slideDownOut">Slide down</option>
+          <option value="slideUpOut">Slide up</option>
+          <option value="popOut">Pop out</option>
+        </select>
+      </Row>
+      <Row label="Easing">
+        <select
+          className="input text-xs"
+          value={anim?.easing ?? 'linear'}
+          onChange={(e) =>
+            set({
+              anim: { ...anim, easing: e.target.value as NonNullable<Layer['anim']>['easing'] }
+            })
+          }
+        >
+          <option value="linear">Linear</option>
+          <option value="easeIn">Ease in</option>
+          <option value="easeOut">Ease out</option>
+          <option value="easeInOut">Ease in-out</option>
+        </select>
+      </Row>
+      <Row label="Duration">
+        <Num
+          value={anim?.durationMs ?? 500}
+          min={100}
+          step={100}
+          onChange={(v) => set({ anim: { ...anim, durationMs: v } })}
+        />
+        <span className="text-ink-faint text-[11px]">ms</span>
+      </Row>
+      <Row label="Delay">
+        <Num
+          value={anim?.delayMs ?? 0}
+          min={0}
+          step={100}
+          onChange={(v) => set({ anim: { ...anim, delayMs: v } })}
+        />
+        <span className="text-ink-faint text-[11px]">ms</span>
+      </Row>
     </div>
   )
 }

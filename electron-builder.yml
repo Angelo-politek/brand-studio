@@ -6,22 +6,32 @@ directories:
 files:
   - '!**/.vscode/*'
   - '!src/*'
-  - '!backend/.venv/*'
+  # Backend ships as the frozen sidecar + models via extraResources, never in the asar.
+  - '!backend/**'
+  # Repo-local binaries/icons are copied via extraResources / buildResources.
+  - '!resources/**'
+  - '!build/**'
+  - '!scripts/**'
+  - '!tests/**'
   - '!electron.vite.config.{js,ts,mjs,cjs}'
+  - '!vitest.config.ts'
   - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
-asarUnpack:
-  - resources/**
-  - backend/**
 extraResources:
-  - from: backend
-    to: backend
+  # PyInstaller-frozen sidecar (built by scripts/build-sidecar.ps1).
+  - from: backend/dist-sidecar/brandstudio-sidecar
+    to: sidecar/brandstudio-sidecar
+  # rembg model, resolved via U2NET_HOME -> resources/backend/models.
+  - from: backend/models
+    to: backend/models
     filter:
-      - '**/*'
-      - '!.venv/**'
-      - '!__pycache__/**'
+      - '*.onnx'
+  # FFmpeg binaries, resolved via BS_FFMPEG/BS_FFPROBE.
+  - from: resources/bin/win
+    to: bin
 win:
+  icon: build/icon.ico
   target:
     - nsis
 nsis:

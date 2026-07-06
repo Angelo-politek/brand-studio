@@ -66,19 +66,18 @@ Brand Studio runs entirely on your machine — no cloud, no subscriptions, no da
 |-----------|---------|
 | OS | Windows 10 or Windows 11 (64-bit) |
 | RAM | 4 GB (8 GB recommended) |
-| Python | 3.10 or later (for AI features and video export) |
-| FFmpeg | Included in the Python backend dependencies |
 
-> **Python** must be installed and available on PATH. Brand Studio will automatically create a virtual environment and install its Python dependencies on first launch.
+> The installer bundles everything: a frozen Python sidecar (no system Python needed), FFmpeg, and the background-removal model. No internet connection is required, at install time or ever.
+>
+> **Development only:** running from sources needs Python 3.10+ on PATH (a venv is created on first launch) and FFmpeg on PATH.
 
 ---
 
 ## Installation
 
-1. Download `Brand Studio-1.0.0-setup.exe` from the [Releases](../../releases) page.
+1. Download `brand-studio-1.0.0-setup.exe` from the [Releases](../../releases) page.
 2. Run the installer and follow the prompts.
-3. Launch **Brand Studio** from the Start menu or Desktop shortcut.
-4. On first launch, the app will set up the Python backend automatically (requires an internet connection for pip install).
+3. Launch **Brand Studio** from the Start menu or Desktop shortcut. Everything works offline out of the box.
 
 ---
 
@@ -130,12 +129,18 @@ npm run lint
 ## Building the Installer
 
 ```bash
-npm run package
+npm run package:full   # freezes the Python sidecar (PyInstaller), then builds the installer
+npm run package        # installer only (reuses the last sidecar build)
 ```
 
-Output: `dist/Brand Studio-1.0.0-setup.exe`
+Output: `dist/brand-studio-1.0.0-setup.exe`
 
-The build bundles the Python backend sources in `extraResources/backend/`. The virtual environment is **not** bundled — it is created in `%APPDATA%\brand-studio\python-venv\` on first launch.
+The installer bundles:
+- the PyInstaller-frozen sidecar (`backend/dist-sidecar/` → `resources/sidecar/`) — no system Python needed
+- FFmpeg/FFprobe (`resources/bin/win/` → `resources/bin/`, wired to the sidecar via `BS_FFMPEG`/`BS_FFPROBE`)
+- the rembg model (`backend/models/u2net.onnx` → `resources/backend/models/`)
+
+Prerequisites for building: `backend/.venv` with `requirements.txt` + `pyinstaller` installed, and `ffmpeg.exe`/`ffprobe.exe` copied into `resources/bin/win/`.
 
 ---
 

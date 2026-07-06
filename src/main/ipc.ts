@@ -50,6 +50,23 @@ function assertWritableSubdir(subdir: string): void {
   }
 }
 
+/**
+ * Like assertWritableSubdir, but allows nesting BELOW an allowlisted root
+ * (e.g. 'cache/video-export/<id>'); every path segment is checked so `..`
+ * can never escape the data root.
+ */
+function assertWritableSubdirNested(subdir: string): void {
+  const norm = subdir.replace(/\\/g, '/')
+  const segments = norm.split('/')
+  if (segments.some((s) => s === '' || s === '.' || s === '..')) {
+    throw new Error(`Subdir not allowed: ${subdir}`)
+  }
+  const ok = (WRITABLE_SUBDIRS as readonly string[]).some(
+    (w) => norm === w || norm.startsWith(w + '/')
+  )
+  if (!ok) throw new Error(`Subdir not allowed: ${subdir}`)
+}
+
 /** Write bytes into <subdir> under the data root, returning the relative path. */
 async function writeBinary(subdir: string, filename: string, bytes: Uint8Array): Promise<string> {
   assertWritableSubdir(subdir)
@@ -65,9 +82,11 @@ async function writeBinary(subdir: string, filename: string, bytes: Uint8Array):
 async function writeBinaryNamed(
   subdir: string,
   filename: string,
-  bytes: Uint8Array
+  bytes: Uint8Array,
+  allowNested = false
 ): Promise<string> {
-  assertWritableSubdir(subdir)
+  if (allowNested) assertWritableSubdirNested(subdir)
+  else assertWritableSubdir(subdir)
   const dir = join(getPaths().dataRoot, subdir)
   await mkdir(dir, { recursive: true })
   const abs = join(dir, sanitize(filename))
@@ -140,6 +159,10 @@ export function registerIpc(): void {
 
   handleValidated(IPC.appSaveBinary, S.saveBinaryInput, (input) =>
     writeBinary(input.subdir, input.filename, input.bytes)
+  )
+
+  handleValidated(IPC.appSaveBinaryNamed, S.saveBinaryNamedInput, (input) =>
+    writeBinaryNamed(input.subdir, input.filename, input.bytes, true)
   )
 
   handleValidated(IPC.appReadFile, S.absPathArg, async (absPath) => {

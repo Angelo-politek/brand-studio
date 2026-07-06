@@ -4,6 +4,7 @@ import { Group, Image as KonvaImage } from 'react-konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import { mediaUrl } from '@shared/ipc'
 import { useVideoEditorStore } from '@renderer/stores/videoEditorStore'
+import { TRANSITION_IDENTITY, type SceneTransitionState } from '@renderer/lib/videoAnim'
 import type { VideoClip } from '@shared/types'
 
 export const CLIP_ID = '__clip__'
@@ -18,11 +19,14 @@ const SIDE_ANCHORS = new Set(['middle-left', 'middle-right', 'top-center', 'bott
 export default function SceneClipNode({
   clip,
   playheadMs,
-  playing
+  playing,
+  transition = TRANSITION_IDENTITY
 }: {
   clip: VideoClip
   playheadMs: number
   playing: boolean
+  /** Scene enter-transition displacement/fade (preview parity with xfade). */
+  transition?: SceneTransitionState
 }): JSX.Element | null {
   const select = useVideoEditorStore((s) => s.select)
   const updateClip = useVideoEditorStore((s) => s.updateClip)
@@ -132,10 +136,10 @@ export default function SceneClipNode({
     <Group
       id={CLIP_ID}
       name="layer"
-      x={clip.x}
-      y={clip.y}
+      x={clip.x + transition.dx}
+      y={clip.y + transition.dy}
       rotation={clip.rotation}
-      opacity={clip.opacity}
+      opacity={clip.opacity * transition.opacity}
       draggable
       onMouseDown={() => select(CLIP_ID)}
       onTap={() => select(CLIP_ID)}

@@ -46,3 +46,11 @@ app.include_router(bg_remove.router)
 app.include_router(image.router)
 app.include_router(thumbnail.router)
 app.include_router(video.router)
+
+
+# Entry point for the PyInstaller-frozen sidecar: the packaged app runs the exe
+# directly (no uvicorn CLI), with the port injected via BS_PORT.
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(app, host="127.0.0.1", port=int(os.environ.get("BS_PORT", "8756")))

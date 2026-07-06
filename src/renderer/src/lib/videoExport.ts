@@ -145,14 +145,19 @@ export function sceneHasAnimation(scene: VideoScene): boolean {
 
 /**
  * Render a scene's overlays as an animated PNG frame sequence at `fps`,
- * applying enter/exit animations across the scene duration. Returns one PNG per
- * frame. Use only when `sceneHasAnimation` is true (heavier than a single PNG).
+ * applying enter/exit animations across the scene duration. Use only when
+ * `sceneHasAnimation` is true (heavier than a single PNG).
+ *
+ * With `onFrame`, each frame is handed off as soon as it is rasterized (e.g.
+ * written to disk) and the returned array stays empty — this keeps memory flat
+ * regardless of scene length. Without it, all frames are returned in memory.
  */
 export async function renderSceneOverlayFrames(
   scene: VideoScene,
   width: number,
   height: number,
-  fps: number
+  fps: number,
+  onFrame?: (bytes: Uint8Array, index: number) => Promise<void>
 ): Promise<Uint8Array[]> {
   const visible = scene.layers.filter((l) => l.visible)
   if (visible.length === 0) return []
@@ -181,7 +186,9 @@ export async function renderSceneOverlayFrames(
       layer.draw()
       const dataUrl = stage.toDataURL({ pixelRatio: 1, mimeType: 'image/png' })
       const res = await fetch(dataUrl)
-      frames.push(new Uint8Array(await res.arrayBuffer()))
+      const bytes = new Uint8Array(await res.arrayBuffer())
+      if (onFrame) await onFrame(bytes, i)
+      else frames.push(bytes)
     }
     return frames
   } finally {

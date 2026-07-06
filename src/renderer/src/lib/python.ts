@@ -92,7 +92,7 @@ export async function tintImage(
   return new Uint8Array(await res.arrayBuffer())
 }
 
-/** One scene in the export payload. Overlay PNG (if any) is sent separately. */
+/** One scene in the export payload. Overlays are pre-written under the data root. */
 export interface ExportScene {
   durationMs: number
   background: string
@@ -113,6 +113,10 @@ export interface ExportScene {
     naturalHeight?: number | null
   } | null
   transitionIn?: { type: string; durationMs: number }
+  /** Absolute path of a static overlay PNG under cache/video-export, or null. */
+  overlayPath?: string | null
+  /** Absolute path of a dir of animated overlay frames (f_%05d.png), or null. */
+  framesDir?: string | null
 }
 
 export interface VideoExportParams {
@@ -120,65 +124,65 @@ export interface VideoExportParams {
   width: number
   height: number
   scenes: ExportScene[]
-  /** Per-scene static overlay PNGs (index-aligned with scenes; null = none). */
-  overlays: (Uint8Array | null)[]
-  /** Per-scene animated overlay frame sequences (null = use static overlay). */
-  frames?: (Uint8Array[] | null)[]
-  /** FPS used for animated overlay frame sequences. */
+  /** FPS of the animated overlay frame sequences. */
   overlayFps?: number
   audio?: { path: string; volume: number; inMs: number } | null
+  /** Per-export work dir (cache/video-export/<id>) — cleaned up by the backend. */
+  workDir?: string | null
+}
+
+export interface VideoJobStatus {
+  job_id: string
+  state: 'running' | 'done' | 'error' | 'cancelled'
+  progress: number
+  stage: string
+  error: string | null
+  output_path: string | null
 }
 
 /**
- * Export a timeline video via FFmpeg in the Python sidecar.
- * Returns the output path on success, null if Python is offline.
- * Throws with FFmpeg stderr if it fails.
+ * Start a timeline video export job in the Python sidecar.
+ * Returns the job id, or null if Python is offline. Poll with getVideoJob.
  */
-export async function exportVideo(params: VideoExportParams): Promise<string | null> {
+export async function startVideoExport(params: VideoExportParams): Promise<string | null> {
   const root = await base()
   if (!root) return null
-  const form = new FormData()
-  form.append(
-    'payload',
-    JSON.stringify({
+  const res = await fetch(`${root}/video/export`, {
+    method: 'POST',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({
       outputPath: params.outputPath,
       width: params.width,
       height: params.height,
       scenes: params.scenes,
       audio: params.audio ?? null,
-      overlayFps: params.overlayFps ?? 15
+      overlayFps: params.overlayFps ?? 30,
+      workDir: params.workDir ?? null
     })
-  )
-  params.overlays.forEach((bytes, i) => {
-    // Animated frame sequence takes precedence over a static overlay.
-    const seq = params.frames?.[i]
-    if (seq && seq.length > 0) {
-      seq.forEach((f, j) => {
-        form.append(
-          `frames_${i}_${j}`,
-          new Blob([f as BlobPart], { type: 'image/png' }),
-          `f_${j}.png`
-        )
-      })
-    } else if (bytes && bytes.byteLength > 0) {
-      form.append(
-        `overlay_${i}`,
-        new Blob([bytes as BlobPart], { type: 'image/png' }),
-        `overlay_${i}.png`
-      )
-    }
-  })
-  const res = await fetch(`${root}/video/export`, {
-    method: 'POST',
-    headers: authHeaders(),
-    body: form
   })
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText)
     throw new Error(`video export failed: ${text}`)
   }
-  const data = (await res.json()) as { output_path: string }
-  return data.output_path
+  const data = (await res.json()) as VideoJobStatus
+  return data.job_id
+}
+
+export async function getVideoJob(jobId: string): Promise<VideoJobStatus> {
+  const root = await base()
+  if (!root) throw new Error('backend offline')
+  const res = await fetch(`${root}/video/jobs/${jobId}`, { headers: authHeaders() })
+  if (!res.ok) throw new Error(`job status failed: ${res.status}`)
+  return (await res.json()) as VideoJobStatus
+}
+
+export async function cancelVideoJob(jobId: string): Promise<void> {
+  const root = await base()
+  if (!root) return
+  await fetch(`${root}/video/jobs/${jobId}/cancel`, {
+    method: 'POST',
+    headers: authHeaders()
+  }).catch(() => undefined)
 }
 
 /** Extract a dominant-colour palette via the backend KMeans endpoint. */

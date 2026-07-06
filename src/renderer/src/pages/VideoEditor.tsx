@@ -18,8 +18,13 @@ import {
   renderSceneOverlayFrames,
   sceneHasAnimation
 } from '@renderer/lib/videoExport'
-import { animateLayer } from '@renderer/lib/videoAnim'
-import { exportVideo } from '@renderer/lib/python'
+import { animateLayer, sceneTransitionState, TRANSITION_IDENTITY } from '@renderer/lib/videoAnim'
+import {
+  startVideoExport,
+  getVideoJob,
+  cancelVideoJob,
+  type ExportScene
+} from '@renderer/lib/python'
 import { mediaUrl } from '@shared/ipc'
 import { toast } from '@renderer/stores/uiStore'
 import type { Asset, VideoProject } from '@shared/types'
@@ -38,35 +43,18 @@ function probeVideoMeta(url: string): Promise<{ durMs: number; w: number; h: num
   })
 }
 
-/**
- * Apply the scene's enter transition to a layer for the live preview, confined
- * to the artboard (it operates on layer opacity/position, never the work area).
- * Active only during the first `transition.durationMs` of the scene; mirrors the
- * xfade/slide the exporter produces between segments.
- */
-function applySceneTransition(
-  layer: import('@shared/types').Layer,
-  playheadMs: number,
-  scene: import('@shared/types').VideoScene
-): import('@shared/types').Layer {
-  const t = scene.transitionIn
-  if (!t || t.type === 'none') return layer
-  const d = t.durationMs || 400
-  if (playheadMs >= d) return layer
-  const p = Math.max(0, Math.min(1, playheadMs / d))
-  if (t.type === 'fade') return { ...layer, opacity: layer.opacity * p }
-  if (t.type === 'slideLeft') return { ...layer, x: layer.x + (1 - p) * 120 }
-  // slideUp
-  return { ...layer, y: layer.y + (1 - p) * 120, opacity: layer.opacity * (0.4 + 0.6 * p) }
-}
 
 export default function VideoEditor(): JSX.Element {
   const { videoId } = useParams<{ videoId: string }>()
   const navigate = useNavigate()
   const [saving, setSaving] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [exportProgress, setExportProgress] = useState(0)
+  const [exportStage, setExportStage] = useState('')
   const [picker, setPicker] = useState<'video' | 'audio' | null>(null)
   const lastSaved = useRef('')
+  const exportJobId = useRef<string | null>(null)
+  const exportCancelled = useRef(false)
 
   const store = useVideoEditorStore
   useEditorHotkeys(useVideoEditorStore)
@@ -262,6 +250,11 @@ export default function VideoEditor(): JSX.Element {
     const vp = store.getState().toProject()
     if (vp.scenes.length === 0) return
     setExporting(true)
+    setExportProgress(0)
+    setExportStage('Rendering overlays…')
+    exportCancelled.current = false
+    exportJobId.current = null
+    const CANCELLED = new Error('__cancelled__')
     try {
       const paths = await window.api.app.getPaths()
       const root = paths.dataRoot.replace(/\\/g, '/')
@@ -269,44 +262,74 @@ export default function VideoEditor(): JSX.Element {
       const relPath = `exports/${safeName}_${Date.now()}.mp4`
       const outputPath = `${root}/${relPath}`
 
-      // Render each scene's overlays. Animated scenes produce a frame sequence;
-      // static scenes produce a single PNG.
-      const OVERLAY_FPS = 15
-      const overlays: (Uint8Array | null)[] = []
-      const frames: (Uint8Array[] | null)[] = []
-      for (const s of vp.scenes) {
-        if (sceneHasAnimation(s)) {
-          overlays.push(null)
-          frames.push(await renderSceneOverlayFrames(s, vp.width, vp.height, OVERLAY_FPS))
-        } else {
-          overlays.push(await renderSceneOverlayPng(s, vp.width, vp.height))
-          frames.push(null)
-        }
-      }
+      // Per-export work dir under the data root; overlays/frames are written
+      // here by the renderer and the backend deletes it when the job ends.
+      const exportId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+      const workSub = `cache/video-export/${exportId}`
+      const workDir = `${root}/${workSub}`
 
-      const scenes = vp.scenes.map((s) => ({
-        durationMs: s.durationMs,
-        background: s.background === 'transparent' ? '#000000' : s.background,
-        clip: s.clip
-          ? {
-              src: `${root}/${s.clip.src.replace(/\\/g, '/')}`,
-              inMs: s.clip.inMs,
-              outMs: s.clip.outMs,
-              volume: s.clip.volume,
-              muted: s.clip.muted,
-              fit: s.clip.fit,
-              look: s.clip.look ?? 'none',
-              x: s.clip.x,
-              y: s.clip.y,
-              width: s.clip.width,
-              height: s.clip.height,
-              crop: s.clip.crop ?? null,
-              naturalWidth: s.clip.naturalWidth ?? null,
-              naturalHeight: s.clip.naturalHeight ?? null
-            }
-          : null,
-        transitionIn: s.transitionIn
-      }))
+      // Overlay frames at output fps, so animations are as smooth as the video.
+      const OVERLAY_FPS = 30
+
+      // Rasterize overlays scene by scene, streaming animated frames straight
+      // to disk (memory stays flat) — this phase is 0..30% of the bar.
+      const totalDur = vp.scenes.reduce((a, s) => a + s.durationMs, 0) || 1
+      let doneDur = 0
+      const scenes: ExportScene[] = []
+      for (const [i, s] of vp.scenes.entries()) {
+        if (exportCancelled.current) throw CANCELLED
+        let overlayPath: string | null = null
+        let framesDir: string | null = null
+        if (sceneHasAnimation(s)) {
+          const sub = `${workSub}/scene_${i}`
+          await renderSceneOverlayFrames(s, vp.width, vp.height, OVERLAY_FPS, async (bytes, j) => {
+            if (exportCancelled.current) throw CANCELLED
+            await window.api.app.saveBinaryNamed({
+              subdir: sub,
+              filename: `f_${String(j).padStart(5, '0')}.png`,
+              bytes
+            })
+          })
+          framesDir = `${workDir}/scene_${i}`
+        } else {
+          const png = await renderSceneOverlayPng(s, vp.width, vp.height)
+          if (png) {
+            await window.api.app.saveBinaryNamed({
+              subdir: workSub,
+              filename: `ov_${i}.png`,
+              bytes: png
+            })
+            overlayPath = `${workDir}/ov_${i}.png`
+          }
+        }
+        doneDur += s.durationMs
+        setExportProgress(Math.round((doneDur / totalDur) * 30))
+        scenes.push({
+          durationMs: s.durationMs,
+          background: s.background === 'transparent' ? '#000000' : s.background,
+          clip: s.clip
+            ? {
+                src: `${root}/${s.clip.src.replace(/\\/g, '/')}`,
+                inMs: s.clip.inMs,
+                outMs: s.clip.outMs,
+                volume: s.clip.volume,
+                muted: s.clip.muted,
+                fit: s.clip.fit,
+                look: s.clip.look ?? 'none',
+                x: s.clip.x,
+                y: s.clip.y,
+                width: s.clip.width,
+                height: s.clip.height,
+                crop: s.clip.crop ?? null,
+                naturalWidth: s.clip.naturalWidth ?? null,
+                naturalHeight: s.clip.naturalHeight ?? null
+              }
+            : null,
+          transitionIn: s.transitionIn,
+          overlayPath,
+          framesDir
+        })
+      }
 
       const audio = vp.audio
         ? {
@@ -316,29 +339,60 @@ export default function VideoEditor(): JSX.Element {
           }
         : null
 
-      const result = await exportVideo({
+      const jobId = await startVideoExport({
         outputPath,
         width: vp.width,
         height: vp.height,
         scenes,
-        overlays,
-        frames,
         overlayFps: OVERLAY_FPS,
-        audio
+        audio,
+        workDir
       })
-      if (!result) {
+      if (!jobId) {
         toast('Processing backend offline — restart the app.', 'error')
         return
       }
-      toast('Video exported!', 'success')
-      await window.api.app.showInFolder(relPath)
+      exportJobId.current = jobId
+
+      // Poll the job: backend work is 30..100% of the bar.
+      for (;;) {
+        await new Promise((r) => setTimeout(r, 500))
+        const st = await getVideoJob(jobId)
+        setExportProgress(30 + Math.round(st.progress * 70))
+        setExportStage(st.stage === 'audio' ? 'Mixing audio…' : `Encoding ${st.stage}…`)
+        if (st.state === 'done') {
+          toast('Video exported!', 'success')
+          await window.api.app.showInFolder(relPath)
+          break
+        }
+        if (st.state === 'cancelled') {
+          toast('Export cancelled')
+          break
+        }
+        if (st.state === 'error') {
+          throw new Error(st.error ?? 'export failed')
+        }
+      }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      console.error('[video export] failed:', err)
-      toast(`Export failed: ${msg}`, 'error')
+      if (err instanceof Error && err.message === '__cancelled__') {
+        toast('Export cancelled')
+      } else {
+        const msg = err instanceof Error ? err.message : String(err)
+        console.error('[video export] failed:', err)
+        toast(`Export failed: ${msg}`, 'error')
+      }
     } finally {
       setExporting(false)
+      setExportProgress(0)
+      setExportStage('')
+      exportJobId.current = null
     }
+  }
+
+  function handleCancelExport(): void {
+    exportCancelled.current = true
+    const id = exportJobId.current
+    if (id) void cancelVideoJob(id)
   }
 
   if (!activeScene) {
@@ -380,14 +434,31 @@ export default function VideoEditor(): JSX.Element {
                 </>
               )}
             </span>
-            <button
-              onClick={() => void handleExport()}
-              disabled={exporting}
-              className="btn-primary text-sm disabled:opacity-50"
-            >
-              {exporting ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
-              {exporting ? 'Exporting…' : 'Export'}
-            </button>
+            {exporting ? (
+              <div className="flex items-center gap-2">
+                <Loader2 size={14} className="animate-spin text-ink-faint" />
+                <div className="w-36 h-1.5 rounded-full bg-surface-3 overflow-hidden">
+                  <div
+                    className="h-full bg-accent transition-[width] duration-300"
+                    style={{ width: `${exportProgress}%` }}
+                  />
+                </div>
+                <span className="text-[11px] text-ink-faint w-28 truncate" title={exportStage}>
+                  {exportProgress}% · {exportStage}
+                </span>
+                <button
+                  onClick={handleCancelExport}
+                  className="btn-surface text-xs px-2 py-1"
+                  title="Cancel export"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button onClick={() => void handleExport()} className="btn-primary text-sm">
+                <Download size={15} /> Export
+              </button>
+            )}
           </div>
         </div>
 
@@ -399,12 +470,22 @@ export default function VideoEditor(): JSX.Element {
               <EditorCanvas
                 layerTransform={
                   playing
-                    ? (l) =>
-                        applySceneTransition(
-                          animateLayer(l, playheadMs, activeScene.durationMs),
+                    ? (l) => {
+                        const animated = animateLayer(l, playheadMs, activeScene.durationMs)
+                        const t = sceneTransitionState(
+                          activeScene.transitionIn,
                           playheadMs,
-                          activeScene
+                          width,
+                          height
                         )
+                        if (t === TRANSITION_IDENTITY) return animated
+                        return {
+                          ...animated,
+                          x: animated.x + t.dx,
+                          y: animated.y + t.dy,
+                          opacity: animated.opacity * t.opacity
+                        }
+                      }
                     : undefined
                 }
                 underlay={
@@ -414,6 +495,16 @@ export default function VideoEditor(): JSX.Element {
                       clip={activeScene.clip}
                       playheadMs={playheadMs}
                       playing={playing}
+                      transition={
+                        playing
+                          ? sceneTransitionState(
+                              activeScene.transitionIn,
+                              playheadMs,
+                              width,
+                              height
+                            )
+                          : TRANSITION_IDENTITY
+                      }
                     />
                   ) : null
                 }

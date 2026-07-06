@@ -1,4 +1,43 @@
-import type { Layer } from '@shared/types'
+import type { Layer, SceneTransition } from '@shared/types'
+
+/**
+ * How the incoming scene is displaced/faded during its enter transition, in
+ * canvas coordinates. Mirrors FFmpeg's xfade semantics as closely as a
+ * single-scene preview can: the whole frame (clip AND overlay layers) fades in
+ * or slides in over the full canvas size — not just a small layer offset.
+ * Identity ({1,0,0}) once the transition window has elapsed.
+ */
+export interface SceneTransitionState {
+  opacity: number
+  dx: number
+  dy: number
+}
+
+export const TRANSITION_IDENTITY: SceneTransitionState = { opacity: 1, dx: 0, dy: 0 }
+
+export function sceneTransitionState(
+  transition: SceneTransition | undefined,
+  playheadMs: number,
+  canvasW: number,
+  canvasH: number
+): SceneTransitionState {
+  if (!transition || transition.type === 'none') return TRANSITION_IDENTITY
+  const d = transition.durationMs || 400
+  if (playheadMs >= d) return TRANSITION_IDENTITY
+  const p = Math.max(0, Math.min(1, playheadMs / d))
+  switch (transition.type) {
+    case 'fade':
+      return { opacity: p, dx: 0, dy: 0 }
+    case 'slideLeft':
+      // xfade slideleft: the incoming frame slides in from the right edge.
+      return { opacity: 1, dx: (1 - p) * canvasW, dy: 0 }
+    case 'slideUp':
+      // xfade slideup: the incoming frame slides in from the bottom edge.
+      return { opacity: 1, dx: 0, dy: (1 - p) * canvasH }
+    default:
+      return TRANSITION_IDENTITY
+  }
+}
 
 /**
  * Apply a layer's enter/exit animation for preview, given the playhead position

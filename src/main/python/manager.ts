@@ -29,6 +29,35 @@ function backendDir(): string {
 }
 
 /**
+ * The PyInstaller-frozen sidecar exe, when present. Packaged installs ship it
+ * under resources/sidecar; a dev checkout may have a local build to test with.
+ */
+function frozenSidecarPath(dir: string): string | null {
+  const exeName =
+    process.platform === 'win32' ? 'brandstudio-sidecar.exe' : 'brandstudio-sidecar'
+  const candidates = is.dev
+    ? [join(dir, 'dist-sidecar', 'brandstudio-sidecar', exeName)]
+    : [join(process.resourcesPath, 'sidecar', 'brandstudio-sidecar', exeName)]
+  for (const c of candidates) if (existsSync(c)) return c
+  return null
+}
+
+/** Bundled FFmpeg binaries (packaged: resources/bin; dev: resources/bin/win). */
+function bundledFfmpeg(): { ffmpeg?: string; ffprobe?: string } {
+  const dirs = is.dev
+    ? [join(app.getAppPath(), 'resources', 'bin', 'win')]
+    : [join(process.resourcesPath, 'bin')]
+  for (const d of dirs) {
+    const ffmpeg = join(d, 'ffmpeg.exe')
+    const ffprobe = join(d, 'ffprobe.exe')
+    if (existsSync(ffmpeg)) {
+      return { ffmpeg, ffprobe: existsSync(ffprobe) ? ffprobe : undefined }
+    }
+  }
+  return {}
+}
+
+/**
  * The interpreter to run the sidecar with. Prefers the managed userData venv;
  * falls back to a co-located dev .venv, then the system interpreter.
  */
@@ -69,27 +98,33 @@ async function waitHealthy(p: number, timeoutMs = 40000): Promise<boolean> {
   return false
 }
 
-/** Spawn uvicorn and wait until it is healthy. Wires up crash supervision. */
+/** Spawn the sidecar (frozen exe or venv uvicorn) and wait until healthy. */
 async function spawnSidecar(dir: string): Promise<void> {
-  const py = resolvePython(dir)
   port = await findFreePort()
+  const ff = bundledFfmpeg()
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     PYTHONUNBUFFERED: '1',
     U2NET_HOME: join(dir, 'models'),
     BS_SIDECAR_TOKEN: token,
     // Path-validation allowlist for the sidecar (see routers/video.py).
-    BS_DATA_ROOT: getPaths().dataRoot
+    BS_DATA_ROOT: getPaths().dataRoot,
+    BS_PORT: String(port),
+    ...(ff.ffmpeg ? { BS_FFMPEG: ff.ffmpeg } : {}),
+    ...(ff.ffprobe ? { BS_FFPROBE: ff.ffprobe } : {})
   }
   // Inherited from a mis-launched Electron this would make any child Electron
   // process boot as plain Node; it must never reach the sidecar's children.
   delete env.ELECTRON_RUN_AS_NODE
   setStatus('starting', 'Avvio del servizio…')
-  proc = spawn(py, ['-m', 'uvicorn', 'main:app', '--host', '127.0.0.1', '--port', String(port)], {
-    cwd: dir,
-    env,
-    windowsHide: true
-  })
+  const frozen = frozenSidecarPath(dir)
+  proc = frozen
+    ? spawn(frozen, [], { cwd: dir, env, windowsHide: true })
+    : spawn(
+        resolvePython(dir),
+        ['-m', 'uvicorn', 'main:app', '--host', '127.0.0.1', '--port', String(port)],
+        { cwd: dir, env, windowsHide: true }
+      )
   proc.stdout?.on('data', (d) => console.log('[python]', d.toString().trim()))
   proc.stderr?.on('data', (d) => console.log('[python]', d.toString().trim()))
   proc.on('exit', (code) => {
@@ -140,15 +175,16 @@ function onUnexpectedExit(): void {
  */
 export async function startPython(): Promise<void> {
   const dir = backendDir()
-  if (!existsSync(join(dir, 'main.py'))) {
+  const frozen = frozenSidecarPath(dir)
+  if (!frozen && !existsSync(join(dir, 'main.py'))) {
     console.warn('[python] backend/main.py not found — sidecar disabled')
     setStatus('unavailable', 'Backend non trovato')
     return
   }
   try {
-    // Ensure the venv exists (creates it on first run). In dev a co-located
-    // .venv is also accepted, so skip setup if that already works.
-    if (!venvReady() && !existsSync(join(dir, '.venv'))) {
+    // The frozen exe is self-contained; the venv (created on first run in dev)
+    // is only needed when running from Python sources.
+    if (!frozen && !venvReady() && !existsSync(join(dir, '.venv'))) {
       const ok = await ensureVenv(dir)
       if (!ok) return // status already set to 'unavailable'
     }

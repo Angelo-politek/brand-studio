@@ -49,6 +49,17 @@ export const saveBinaryInput = z.object({
   bytes
 })
 
+/**
+ * Exact-name write, allowing nesting BELOW an allowlisted subdir (e.g.
+ * 'cache/video-export/<id>/scene_0'). Segment safety (`..`, empty) is enforced
+ * in the main process; the schema just bounds shape and size.
+ */
+export const saveBinaryNamedInput = z.object({
+  subdir: z.string().min(1).max(300),
+  filename: nonEmpty.max(200),
+  bytes
+})
+
 /** Asset library folders (mirror of ASSET_FOLDERS in types). */
 export const assetFolder = z.enum([
   'Logos',

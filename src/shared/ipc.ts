@@ -24,6 +24,7 @@ export const IPC = {
   appGetPythonInfo: 'app:getPythonInfo',
   appGetPythonStatus: 'app:getPythonStatus',
   appSaveBinary: 'app:saveBinary',
+  appSaveBinaryNamed: 'app:saveBinaryNamed',
   appOpenFileDialog: 'app:openFileDialog',
   appSaveFileDialog: 'app:saveFileDialog',
   appWriteFileTo: 'app:writeFileTo',
@@ -103,6 +104,17 @@ export interface AppPaths {
 export interface SaveBinaryInput {
   /** Subdirectory under the data root, e.g. 'brands' or 'assets'. */
   subdir: string
+  filename: string
+  bytes: Uint8Array
+}
+
+export interface SaveBinaryNamedInput {
+  /**
+   * Subdirectory under the data root; nesting below an allowlisted root is
+   * permitted (e.g. 'cache/video-export/<id>/scene_0').
+   */
+  subdir: string
+  /** Exact filename (sanitized, overwrites) — no UUID prefix. */
   filename: string
   bytes: Uint8Array
 }
@@ -203,6 +215,7 @@ export interface Api {
     getPythonStatus(): Promise<PythonStatusInfo>
     onPythonStatus(cb: (info: PythonStatusInfo) => void): () => void
     saveBinary(input: SaveBinaryInput): Promise<string>
+    saveBinaryNamed(input: SaveBinaryNamedInput): Promise<string>
     openFileDialog(opts?: OpenFileDialogOptions): Promise<string[]>
     saveFileDialog(opts?: SaveFileDialogOptions): Promise<string | null>
     writeFileTo(absPath: string, bytes: Uint8Array): Promise<void>

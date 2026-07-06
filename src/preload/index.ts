@@ -15,6 +15,7 @@ const api: Api = {
       return () => ipcRenderer.removeListener('python:status', handler)
     },
     saveBinary: (input) => ipcRenderer.invoke(IPC.appSaveBinary, input),
+    saveBinaryNamed: (input) => ipcRenderer.invoke(IPC.appSaveBinaryNamed, input),
     openFileDialog: (opts) => ipcRenderer.invoke(IPC.appOpenFileDialog, opts),
     saveFileDialog: (opts) => ipcRenderer.invoke(IPC.appSaveFileDialog, opts),
     writeFileTo: (absPath, bytes) => ipcRenderer.invoke(IPC.appWriteFileTo, absPath, bytes),

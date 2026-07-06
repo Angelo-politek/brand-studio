@@ -14,6 +14,8 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import Response
 from PIL import Image
 
+from ffmpeg_util import ffmpeg_path
+
 router = APIRouter()
 
 
@@ -41,7 +43,7 @@ async def video_thumbnail(
     try:
         subprocess.run(
             [
-                "ffmpeg", "-y", "-ss", str(time), "-i", in_path,
+                ffmpeg_path(), "-y", "-ss", str(time), "-i", in_path,
                 "-frames:v", "1",
                 "-vf", f"scale={size}:-1",
                 out_path,
@@ -54,7 +56,7 @@ async def video_thumbnail(
     except subprocess.CalledProcessError as exc:
         raise HTTPException(status_code=500, detail=f"ffmpeg failed: {exc.stderr.decode()[:300]}")
     except FileNotFoundError:
-        raise HTTPException(status_code=500, detail="ffmpeg not found on PATH")
+        raise HTTPException(status_code=500, detail="ffmpeg not available")
     finally:
         for p in (in_path, out_path):
             try:

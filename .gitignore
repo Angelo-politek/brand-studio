@@ -12,6 +12,13 @@ backend/**/__pycache__/
 
 # Large ML models (re-fetched by setup_venv) — keep out of git
 backend/models/*.onnx
+
+# PyInstaller sidecar build output (rebuilt by scripts/build-sidecar.ps1)
+backend/dist-sidecar/
+backend/build-sidecar/
+
+# Bundled FFmpeg binaries (copied in locally, shipped via extraResources)
+resources/bin/
 backend/test.png
 backend/proc.png
 backend/thumb.png

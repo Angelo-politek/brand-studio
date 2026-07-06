@@ -49,9 +49,20 @@ export const saveBinaryInput = z.object({
   bytes
 })
 
+/** Asset library folders (mirror of ASSET_FOLDERS in types). */
+export const assetFolder = z.enum([
+  'Logos',
+  'Images',
+  'Backgrounds',
+  'Icons',
+  'Videos',
+  'Audio',
+  'Documents'
+])
+
 export const assetImportInput = z.object({
   brandId: id,
-  folder: nonEmpty,
+  folder: assetFolder,
   name: nonEmpty,
   mime: z.string(),
   bytes,
@@ -123,6 +134,82 @@ export const assetListQuery = z.object({
 export const exportListQuery = z
   .object({ brandId: id.optional(), projectId: id.optional() })
   .optional()
+  .nullable()
+
+/* ------------------------------- updates ------------------------------ */
+// Full-entity updates: the id and every column the repository writes must be
+// present and well-typed; extra fields our own code round-trips pass through.
+
+export const brandUpdateInput = z
+  .object({
+    id,
+    name: nonEmpty,
+    logos: z.array(z.object({}).passthrough()),
+    colors: z.array(z.object({}).passthrough()),
+    fonts: z.array(z.object({}).passthrough()),
+    presets: z.array(z.object({}).passthrough())
+  })
+  .passthrough()
+
+export const assetUpdateInput = z
+  .object({
+    id,
+    name: nonEmpty,
+    folder: assetFolder,
+    tags: z.array(z.string())
+  })
+  .passthrough()
+
+export const projectUpdateInput = z
+  .object({
+    id,
+    name: nonEmpty,
+    type: z.string(),
+    canvas: canvasSpec,
+    layers,
+    pages: z.array(z.object({}).passthrough()).optional(),
+    thumbPath: z.string().nullable()
+  })
+  .passthrough()
+
+export const plannerUpdateInput = z
+  .object({
+    id,
+    date: nonEmpty,
+    time: z.string().nullable(),
+    platform: z.string().nullable(),
+    status: z.string(),
+    title: nonEmpty,
+    notes: z.string().nullable(),
+    projectId: id.nullable()
+  })
+  .passthrough()
+
+export const videoUpdateInput = z
+  .object({
+    id,
+    name: nonEmpty,
+    width: z.number().positive().max(100000),
+    height: z.number().positive().max(100000),
+    scenes: z.array(scene),
+    audio: z.object({}).passthrough().nullable().optional(),
+    thumbPath: z.string().nullable()
+  })
+  .passthrough()
+
+/* ----------------------------- multi-arg ------------------------------ */
 
 /** A bare id argument. */
 export const idArg = id
+/** Optional bare id (e.g. templatesList's brandId filter). */
+export const optionalIdArg = id.optional().nullable()
+/** (id, pngBytes) — thumbnail save handlers. */
+export const saveThumbArgs = z.tuple([id, bytes])
+/** (id, newName). */
+export const renameArgs = z.tuple([id, nonEmpty])
+/** A relative path under the data root (containment is enforced in main). */
+export const relPathArg = z.string().min(1).max(2000)
+/** An absolute path (must additionally pass the main-process allowlists). */
+export const absPathArg = z.string().min(1).max(2000)
+/** (absPath, bytes) — save-dialog-authorized write. */
+export const writeFileToArgs = z.tuple([absPathArg, bytes])

@@ -15,7 +15,11 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 }
 
 /** Add a single design Layer to a Konva layer imperatively (export only). */
-async function addLayerNode(konvaLayer: Konva.Layer, layer: Layer): Promise<void> {
+async function addLayerNode(
+  konvaLayer: Konva.Layer,
+  layer: Layer,
+  imageCache?: Map<string, HTMLImageElement>
+): Promise<void> {
   if (!layer.visible) return
   const common = {
     x: layer.x,
@@ -72,7 +76,12 @@ async function addLayerNode(konvaLayer: Konva.Layer, layer: Layer): Promise<void
       break
     case 'image': {
       if (!layer.src) break
-      const img = await loadImage(mediaUrl(layer.src))
+      const url = mediaUrl(layer.src)
+      let img = imageCache?.get(url)
+      if (!img) {
+        img = await loadImage(url)
+        imageCache?.set(url, img)
+      }
       konvaLayer.add(
         new Konva.Image({
           ...common,
@@ -153,25 +162,30 @@ export async function renderSceneOverlayFrames(
   container.style.left = '-99999px'
   document.body.appendChild(container)
 
+  // One stage reused across every frame: creating a Stage per frame both
+  // thrashes the GC and re-decodes each image layer on every frame.
+  const stage = new Konva.Stage({ container, width, height })
+  const layer = new Konva.Layer()
+  stage.add(layer)
+  const imageCache = new Map<string, HTMLImageElement>()
+
   const frames: Uint8Array[] = []
   try {
     const frameCount = Math.max(1, Math.round((scene.durationMs / 1000) * fps))
     for (let i = 0; i < frameCount; i++) {
       const tMs = (i / fps) * 1000
-      const stage = new Konva.Stage({ container, width, height })
-      const layer = new Konva.Layer()
-      stage.add(layer)
+      layer.destroyChildren()
       for (const l of visible) {
-        await addLayerNode(layer, animateLayer(l, tMs, scene.durationMs))
+        await addLayerNode(layer, animateLayer(l, tMs, scene.durationMs), imageCache)
       }
       layer.draw()
       const dataUrl = stage.toDataURL({ pixelRatio: 1, mimeType: 'image/png' })
       const res = await fetch(dataUrl)
       frames.push(new Uint8Array(await res.arrayBuffer()))
-      stage.destroy()
     }
     return frames
   } finally {
+    stage.destroy()
     container.remove()
   }
 }

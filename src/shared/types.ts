@@ -176,10 +176,21 @@ export interface Layer {
 
 /** Per-layer enter/exit animation for video overlays. */
 export interface LayerAnimation {
-  in?: 'none' | 'fadeIn' | 'slideUp' | 'pop'
+  in?: 'none' | 'fadeIn' | 'slideUp' | 'pop' | 'flash' | 'pulse' | 'shake'
   out?: 'none' | 'fadeOut'
   /** Animation duration in milliseconds (applies to both in and out). */
   durationMs?: number
+  /**
+   * Start offset (ms) within the scene before the enter animation begins.
+   * Used for staggered reveals and beat-synced triggers. Defaults to 0.
+   */
+  delayMs?: number
+  /**
+   * Loop period (ms) for continuous effects (pulse/flash). Typically set to the
+   * music beat interval for tempo-synced motion. When omitted, the effect runs
+   * once over `durationMs` instead of looping.
+   */
+  periodMs?: number
 }
 
 export interface Page {

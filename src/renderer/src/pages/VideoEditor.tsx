@@ -38,6 +38,28 @@ function probeVideoMeta(url: string): Promise<{ durMs: number; w: number; h: num
   })
 }
 
+/**
+ * Apply the scene's enter transition to a layer for the live preview, confined
+ * to the artboard (it operates on layer opacity/position, never the work area).
+ * Active only during the first `transition.durationMs` of the scene; mirrors the
+ * xfade/slide the exporter produces between segments.
+ */
+function applySceneTransition(
+  layer: import('@shared/types').Layer,
+  playheadMs: number,
+  scene: import('@shared/types').VideoScene
+): import('@shared/types').Layer {
+  const t = scene.transitionIn
+  if (!t || t.type === 'none') return layer
+  const d = t.durationMs || 400
+  if (playheadMs >= d) return layer
+  const p = Math.max(0, Math.min(1, playheadMs / d))
+  if (t.type === 'fade') return { ...layer, opacity: layer.opacity * p }
+  if (t.type === 'slideLeft') return { ...layer, x: layer.x + (1 - p) * 120 }
+  // slideUp
+  return { ...layer, y: layer.y + (1 - p) * 120, opacity: layer.opacity * (0.4 + 0.6 * p) }
+}
+
 export default function VideoEditor(): JSX.Element {
   const { videoId } = useParams<{ videoId: string }>()
   const navigate = useNavigate()
@@ -68,22 +90,10 @@ export default function VideoEditor(): JSX.Element {
   const activeScene = scenes.find((s) => s.id === activeSceneId) ?? scenes[0]
   const musicRef = useRef<HTMLAudioElement>(null)
 
-  // Live transition preview: when the active scene changes during playback,
-  // briefly animate the canvas wrapper according to the scene's transitionIn.
-  const [transClass, setTransClass] = useState('')
-  const prevSceneRef = useRef(activeSceneId)
-  useEffect(() => {
-    if (prevSceneRef.current === activeSceneId) return
-    prevSceneRef.current = activeSceneId
-    if (!playing) return
-    const t = activeScene?.transitionIn
-    if (!t || t.type === 'none') return
-    const cls =
-      t.type === 'fade' ? 'vt-fade' : t.type === 'slideLeft' ? 'vt-slide-left' : 'vt-slide-up'
-    setTransClass(cls)
-    const timer = setTimeout(() => setTransClass(''), t.durationMs)
-    return () => clearTimeout(timer)
-  }, [activeSceneId, playing, activeScene])
+  // Live transition preview is applied to the artboard CONTENT (the Konva
+  // layers + a confined overlay), not the whole work area — see
+  // `sceneTransitionTransform` / `transitionStyle` below. This keeps the effect
+  // inside the page bounds, matching the exported video.
 
   const audioSrc = audio?.src
   const audioVolume = audio?.volume
@@ -154,10 +164,18 @@ export default function VideoEditor(): JSX.Element {
     setSaving(true)
     const t = setTimeout(async () => {
       const vp = store.getState().toProject()
-      if (!vp.id) return
-      await window.api.video.update(vp as VideoProject)
-      lastSaved.current = JSON.stringify({ name: vp.name, scenes: vp.scenes, audio: vp.audio })
-      setSaving(false)
+      if (!vp.id) {
+        setSaving(false)
+        return
+      }
+      try {
+        await window.api.video.update(vp as VideoProject)
+        lastSaved.current = JSON.stringify({ name: vp.name, scenes: vp.scenes, audio: vp.audio })
+      } catch (err) {
+        console.error('[autosave] failed:', err)
+      } finally {
+        setSaving(false)
+      }
     }, 600)
     return () => clearTimeout(t)
   }, [name, scenes, audio, store])
@@ -197,12 +215,18 @@ export default function VideoEditor(): JSX.Element {
   async function onPickVideo(asset: Asset): Promise<void> {
     setPicker(null)
     const { durMs, w, h } = await probeVideoMeta(mediaUrl(asset.filePath))
+    if (!durMs) {
+      // A failed probe means the file is unreadable or the codec is unsupported;
+      // adding it with a made-up duration would break trim and export silently.
+      toast('Impossibile leggere il video: file danneggiato o formato non supportato', 'error')
+      return
+    }
     // Default geometry = full scene frame, cover fit.
     const clip = {
       src: asset.filePath,
       inMs: 0,
-      outMs: durMs || 4000,
-      sourceDurMs: durMs || 4000,
+      outMs: durMs,
+      sourceDurMs: durMs,
       volume: 1,
       muted: false,
       fit: 'cover' as const,
@@ -310,6 +334,7 @@ export default function VideoEditor(): JSX.Element {
       await window.api.app.showInFolder(relPath)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
+      console.error('[video export] failed:', err)
       toast(`Export failed: ${msg}`, 'error')
     } finally {
       setExporting(false)
@@ -370,10 +395,17 @@ export default function VideoEditor(): JSX.Element {
         <div className="flex-1 min-h-0 flex">
           <ElementsPanel />
           <div className="flex-1 min-w-0 flex flex-col">
-            <div className={`flex-1 min-h-0 ${transClass}`}>
+            <div className="flex-1 min-h-0">
               <EditorCanvas
                 layerTransform={
-                  playing ? (l) => animateLayer(l, playheadMs, activeScene.durationMs) : undefined
+                  playing
+                    ? (l) =>
+                        applySceneTransition(
+                          animateLayer(l, playheadMs, activeScene.durationMs),
+                          playheadMs,
+                          activeScene
+                        )
+                    : undefined
                 }
                 underlay={
                   activeScene.clip ? (

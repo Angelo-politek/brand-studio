@@ -39,6 +39,7 @@ export default function Timeline({
     renameScene,
     setSceneDuration,
     setSceneTransition,
+    reorderScene,
     updateClip,
     setAudio,
     seekGlobal,
@@ -46,6 +47,7 @@ export default function Timeline({
   } = useVideoEditorStore()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [transitionFor, setTransitionFor] = useState<string | null>(null)
+  const [dragOverId, setDragOverId] = useState<string | null>(null)
   const dragRef = useRef<{ id: string; startX: number; startMs: number } | null>(null)
   const trackRef = useRef<HTMLDivElement>(null)
 
@@ -208,9 +210,28 @@ export default function Timeline({
                 <div className="flex flex-col gap-1 h-full" style={{ width: w }}>
                   <div
                     onClick={() => setActiveScene(scene.id)}
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData('text/scene-id', scene.id)
+                      e.dataTransfer.effectAllowed = 'move'
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault()
+                      e.dataTransfer.dropEffect = 'move'
+                      setDragOverId(scene.id)
+                    }}
+                    onDragLeave={() => setDragOverId((cur) => (cur === scene.id ? null : cur))}
+                    onDrop={(e) => {
+                      e.preventDefault()
+                      setDragOverId(null)
+                      const draggedId = e.dataTransfer.getData('text/scene-id')
+                      if (draggedId && draggedId !== scene.id) reorderScene(draggedId, i)
+                    }}
+                    onDragEnd={() => setDragOverId(null)}
                     className={cn(
                       'group relative flex-1 rounded border-2 cursor-pointer overflow-hidden transition-colors',
-                      isActive ? 'border-accent' : 'border-line hover:border-accent/50'
+                      isActive ? 'border-accent' : 'border-line hover:border-accent/50',
+                      dragOverId === scene.id && 'ring-2 ring-accent/70'
                     )}
                     style={{ background: bg }}
                     title={scene.name}

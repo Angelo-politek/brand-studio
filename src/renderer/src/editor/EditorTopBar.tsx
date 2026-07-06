@@ -14,6 +14,7 @@ import {
   Palette,
   Keyboard,
   Maximize2,
+  Film,
   AlignLeft,
   AlignCenter,
   AlignRight,
@@ -39,6 +40,7 @@ interface Props {
   onExport?: () => void
   onResize?: () => void
   onShortcuts?: () => void
+  onConvertToReel?: () => void
 }
 
 function SelectionInfo({
@@ -171,7 +173,8 @@ export default function EditorTopBar({
   saving,
   onExport,
   onResize,
-  onShortcuts
+  onShortcuts,
+  onConvertToReel
 }: Props): JSX.Element {
   const navigate = useNavigate()
   const brand = useCurrentBrand()
@@ -379,6 +382,16 @@ export default function EditorTopBar({
       {onResize && (
         <button onClick={onResize} className="btn-ghost px-2 py-1.5 text-sm" title="Make variants">
           <Maximize2 size={16} />
+        </button>
+      )}
+
+      {onConvertToReel && (
+        <button
+          onClick={onConvertToReel}
+          className="btn-ghost px-2 py-1.5 text-sm"
+          title="Converti in Reel video a tempo di musica"
+        >
+          <Film size={16} />
         </button>
       )}
 

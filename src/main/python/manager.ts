@@ -73,7 +73,7 @@ async function waitHealthy(p: number, timeoutMs = 40000): Promise<boolean> {
 async function spawnSidecar(dir: string): Promise<void> {
   const py = resolvePython(dir)
   port = await findFreePort()
-  const env = {
+  const env: NodeJS.ProcessEnv = {
     ...process.env,
     PYTHONUNBUFFERED: '1',
     U2NET_HOME: join(dir, 'models'),
@@ -81,6 +81,9 @@ async function spawnSidecar(dir: string): Promise<void> {
     // Path-validation allowlist for the sidecar (see routers/video.py).
     BS_DATA_ROOT: getPaths().dataRoot
   }
+  // Inherited from a mis-launched Electron this would make any child Electron
+  // process boot as plain Node; it must never reach the sidecar's children.
+  delete env.ELECTRON_RUN_AS_NODE
   setStatus('starting', 'Avvio del servizio…')
   proc = spawn(py, ['-m', 'uvicorn', 'main:app', '--host', '127.0.0.1', '--port', String(port)], {
     cwd: dir,

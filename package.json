@@ -1,6 +1,6 @@
 {
   "name": "brand-studio",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Offline-first, local-only brand management & social content creation studio",
   "main": "./out/main/index.js",
   "author": "Brand Studio",

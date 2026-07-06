@@ -13,6 +13,7 @@ import { useEditorHotkeys } from '@renderer/editor/useEditorHotkeys'
 import ExportDialog from '@renderer/components/ExportDialog'
 import ResizeDialog from '@renderer/components/ResizeDialog'
 import ShortcutsDialog from '@renderer/components/ShortcutsDialog'
+import ConvertToReelDialog from '@renderer/components/ConvertToReelDialog'
 import { getStage } from '@renderer/editor/stageRef'
 import { captureThumbnailBytes } from '@renderer/editor/exportArtboard'
 import { toast } from '@renderer/stores/uiStore'
@@ -47,6 +48,7 @@ export default function Editor(): JSX.Element {
   const [exportOpen, setExportOpen] = useState(false)
   const [resizeOpen, setResizeOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  const [reelOpen, setReelOpen] = useState(false)
   const lastSavedRef = useRef('')
 
   useEditorHotkeys()
@@ -162,6 +164,7 @@ export default function Editor(): JSX.Element {
         onExport={() => setExportOpen(true)}
         onResize={() => setResizeOpen(true)}
         onShortcuts={() => setShortcutsOpen(true)}
+        onConvertToReel={() => setReelOpen(true)}
       />
       <div className="flex-1 min-h-0 flex">
         <ElementsPanel />
@@ -181,6 +184,7 @@ export default function Editor(): JSX.Element {
       {exportOpen && <ExportDialog onClose={() => setExportOpen(false)} />}
       {resizeOpen && <ResizeDialog onClose={() => setResizeOpen(false)} />}
       {shortcutsOpen && <ShortcutsDialog onClose={() => setShortcutsOpen(false)} />}
+      {reelOpen && <ConvertToReelDialog onClose={() => setReelOpen(false)} />}
     </div>
   )
 }

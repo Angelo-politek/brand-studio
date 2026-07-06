@@ -25,7 +25,7 @@ function applyCsp(): void {
         "style-src 'self' 'unsafe-inline'",
         `img-src 'self' media: data: blob:`,
         `font-src 'self' media: data:`,
-        `connect-src 'self' ${sidecar} ws://localhost:* http://localhost:*`,
+        `connect-src 'self' media: ${sidecar} ws://localhost:* http://localhost:*`,
         "media-src 'self' media: blob:"
       ].join('; ')
     : [
@@ -35,7 +35,7 @@ function applyCsp(): void {
         "style-src 'self' 'unsafe-inline'",
         `img-src 'self' media: data: blob:`,
         `font-src 'self' media: data:`,
-        `connect-src 'self' ${sidecar}`,
+        `connect-src 'self' media: ${sidecar}`,
         "media-src 'self' media: blob:",
         "object-src 'none'",
         "base-uri 'self'"

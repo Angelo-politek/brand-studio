@@ -14,6 +14,8 @@ import os
 import shutil
 import subprocess
 import tempfile
+import time
+import uuid
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Request
@@ -69,7 +71,22 @@ def _look_filter(look: str) -> str:
 def _run(cmd: list[str]) -> None:
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
     if result.returncode != 0:
-        raise HTTPException(status_code=500, detail=f"ffmpeg failed: {result.stderr[-2000:]}")
+        # Persist the full failing command + stderr next to the data root so the
+        # exact failure can be inspected after the fact.
+        try:
+            roots = _allowed_roots()
+            if roots:
+                # One file per failure so concurrent exports don't clobber
+                # each other's diagnostics.
+                log_dir = os.path.join(roots[0], "logs")
+                os.makedirs(log_dir, exist_ok=True)
+                stamp = time.strftime("%Y%m%d-%H%M%S")
+                log = os.path.join(log_dir, f"video_export_error_{stamp}_{uuid.uuid4().hex[:8]}.log")
+                with open(log, "w", encoding="utf-8") as f:
+                    f.write("COMMAND:\n" + " ".join(cmd) + "\n\nSTDERR:\n" + result.stderr)
+        except OSError:
+            pass
+        raise HTTPException(status_code=500, detail=f"ffmpeg failed: {result.stderr[-1500:]}")
 
 
 def _hex(c: str) -> str:
@@ -102,17 +119,43 @@ def _render_scene(
     next_idx = 1
     if has_clip:
         clip_in = clip.get("inMs", 0) / 1000.0
-        cmd += ["-ss", str(clip_in), "-i", _safe_path(clip["src"])]
+        clip_out = clip.get("outMs", 0) / 1000.0
+        cmd += ["-ss", str(clip_in)]
+        # Bound the input to the trimmed length, otherwise the trim-out point
+        # only holds while the scene duration happens to match it.
+        if clip_out > clip_in:
+            cmd += ["-t", str(clip_out - clip_in)]
+        cmd += ["-i", _safe_path(clip["src"])]
         clip_idx = next_idx
         next_idx += 1
     if frames_dir is not None:
-        # Animated overlay: image sequence at overlay_fps.
-        cmd += ["-framerate", str(overlay_fps), "-i", os.path.join(frames_dir, "f_%05d.png")]
+        # Animated overlay: image sequence at overlay_fps. Loop the sequence and
+        # cap it to the scene duration so it always covers the whole scene
+        # without running past it.
+        cmd += [
+            "-framerate", str(overlay_fps),
+            "-stream_loop", "-1",
+            "-t", str(dur),
+            "-i", os.path.join(frames_dir, "f_%05d.png"),
+        ]
         overlay_idx = next_idx
         next_idx += 1
     elif overlay_path is not None:
-        cmd += ["-loop", "1", "-i", overlay_path]
+        # Static overlay: a single looped frame, bounded to the scene duration.
+        # Without -t the looped image is an infinite input, which makes the
+        # overlay filtergraph buffer forever (OOM / hang) instead of ending.
+        cmd += ["-loop", "1", "-t", str(dur), "-i", overlay_path]
         overlay_idx = next_idx
+        next_idx += 1
+
+    # Silent-audio input, when there is no clip audio to use. It MUST be declared
+    # here alongside the other inputs — declaring an -i after the output's
+    # -filter_complex/-map options makes ffmpeg reject the command.
+    use_clip_audio = has_clip and not clip.get("muted", False)
+    silent_audio_idx = None
+    if not use_clip_audio:
+        cmd += ["-f", "lavfi", "-t", str(dur), "-i", "anullsrc=channel_layout=stereo:sample_rate=44100"]
+        silent_audio_idx = next_idx
         next_idx += 1
 
     steps: list[str] = []
@@ -148,12 +191,13 @@ def _render_scene(
         if look_f:
             steps.append(f"[{cur}]{look_f}[cl]")
             cur = "cl"
-        # Composite the clip box onto the background.
-        steps.append(f"[{base}][{cur}]overlay={bx}:{by}[bgc]")
+        # Composite the clip box onto the background. eof_action=pass keeps the
+        # background flowing if the clip ends first; the output -t bounds length.
+        steps.append(f"[{base}][{cur}]overlay={bx}:{by}:eof_action=pass[bgc]")
         base = "bgc"
 
     if has_overlay:
-        steps.append(f"[{base}][{overlay_idx}:v]overlay=0:0[vout]")
+        steps.append(f"[{base}][{overlay_idx}:v]overlay=0:0:eof_action=pass[vout]")
         base = "vout"
     else:
         steps.append(f"[{base}]null[vout]")
@@ -161,13 +205,13 @@ def _render_scene(
 
     cmd += ["-filter_complex", ";".join(steps), "-map", "[vout]"]
 
-    # Audio: from the clip (respecting mute/volume) or silent.
-    if has_clip and not clip.get("muted", False):
+    # Audio: from the clip (respecting mute/volume) or the silent source declared
+    # with the inputs above.
+    if use_clip_audio:
         vol = float(clip.get("volume", 1.0))
         cmd += ["-map", f"{clip_idx}:a?", "-af", f"volume={vol}"]
     else:
-        cmd += ["-f", "lavfi", "-t", str(dur), "-i", "anullsrc=channel_layout=stereo:sample_rate=44100"]
-        cmd += ["-map", f"{next_idx}:a"]
+        cmd += ["-map", f"{silent_audio_idx}:a"]
 
     cmd += [
         "-t", str(dur),

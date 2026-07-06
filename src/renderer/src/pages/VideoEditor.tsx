@@ -44,7 +44,6 @@ function probeVideoMeta(url: string): Promise<{ durMs: number; w: number; h: num
   })
 }
 
-
 export default function VideoEditor(): JSX.Element {
   const { videoId } = useParams<{ videoId: string }>()
   const navigate = useNavigate()

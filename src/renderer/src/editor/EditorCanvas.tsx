@@ -484,7 +484,11 @@ export default function EditorCanvas({
                         typeof px === 'number' &&
                         typeof py === 'number' &&
                         Object.keys(patch).length === 2
-                      if (isPureMove && selectedIds.length > 1 && selectedIds.includes(rawLayer.id)) {
+                      if (
+                        isPureMove &&
+                        selectedIds.length > 1 &&
+                        selectedIds.includes(rawLayer.id)
+                      ) {
                         const dx = (px as number) - rawLayer.x
                         const dy = (py as number) - rawLayer.y
                         updateLayer(rawLayer.id, patch)

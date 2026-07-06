@@ -28,7 +28,12 @@ import { mediaUrl } from '@shared/ipc'
 import { useEditorStoreApi } from './editorStoreContext'
 import { useCurrentBrand } from '@renderer/stores/brandStore'
 import { useAssetStore } from '@renderer/stores/assetStore'
-import { createTextLayer, createShapeLayer, createImageLayer, createPanelComponent } from './factory'
+import {
+  createTextLayer,
+  createShapeLayer,
+  createImageLayer,
+  createPanelComponent
+} from './factory'
 import { isImageMime } from '@renderer/lib/mime'
 import { pickFiles } from '@renderer/lib/files'
 import { ASSET_FOLDERS } from '@shared/types'

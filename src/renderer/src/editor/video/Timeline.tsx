@@ -411,5 +411,7 @@ function AudioWaveStrip({ src, inMs }: { src: string; inMs: number }): JSX.Eleme
       alive = false
     }
   }, [src, inMs])
-  return <canvas ref={canvasRef} width={960} height={24} className="absolute inset-0 w-full h-full" />
+  return (
+    <canvas ref={canvasRef} width={960} height={24} className="absolute inset-0 w-full h-full" />
+  )
 }

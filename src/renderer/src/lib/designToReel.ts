@@ -193,7 +193,10 @@ export function autoAnimateLayers(
     }
 
     // Visuals (images/shapes): gentle fade in. Punchy adds a shake accent.
-    if (intensity === 'punchy' && (l.type === 'image' || l.type === 'rect' || l.type === 'circle')) {
+    if (
+      intensity === 'punchy' &&
+      (l.type === 'image' || l.type === 'rect' || l.type === 'circle')
+    ) {
       return { ...l, anim: { in: 'shake', durationMs: baseDur } }
     }
     return { ...l, anim: { in: 'fadeIn', durationMs: baseDur } }
@@ -267,8 +270,7 @@ export function pagesToScenes(pages: Page[], opts: ReelConvertOptions): ReelConv
       id: uuid(),
       name: page.name || `Scene ${i + 1}`,
       durationMs,
-      background:
-        page.canvas.background === 'transparent' ? '#000000' : page.canvas.background,
+      background: page.canvas.background === 'transparent' ? '#000000' : page.canvas.background,
       clip: null,
       layers: sceneLayers,
       transitionIn: i === 0 ? undefined : { type: transition, durationMs: 400 }

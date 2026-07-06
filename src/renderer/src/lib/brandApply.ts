@@ -22,10 +22,7 @@ export function applyBrandToLayers(layers: Layer[], brand: Brand): Layer[] {
   const body = brand.fonts.find((f) => f.role === 'body')?.family
 
   // The largest visible font on the page is treated as the title.
-  const maxFont = layers.reduce(
-    (m, l) => (l.type === 'text' ? Math.max(m, l.fontSize ?? 0) : m),
-    0
-  )
+  const maxFont = layers.reduce((m, l) => (l.type === 'text' ? Math.max(m, l.fontSize ?? 0) : m), 0)
 
   return layers.map((l) => {
     if (l.type === 'text') {

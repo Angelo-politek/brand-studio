@@ -490,12 +490,16 @@ def _export_worker(data: dict, job: _Job) -> None:
                   "-movflags", "+faststart", output_path],
                  job=job, span=_SPAN_MUX, expected_dur=total_dur)
 
+        # Clean up BEFORE flipping the state: when the client sees "done" every
+        # temp file (segments, tmpdir, renderer work dir) must already be gone.
+        _cleanup_export(written, tmpdir, work_dir)
         job.progress = 1.0
         job.stage = "done"
         job.output_path = output_path
         job.state = "done"
 
     except _JobCancelled:
+        _cleanup_export(written, tmpdir, work_dir)
         job.state = "cancelled"
         job.stage = "cancelled"
         try:
@@ -504,21 +508,24 @@ def _export_worker(data: dict, job: _Job) -> None:
         except OSError:
             pass
     except Exception as exc:  # noqa: BLE001 — surfaced via the job status
+        _cleanup_export(written, tmpdir, work_dir)
         job.state = "error"
         job.stage = "error"
         job.error = str(exc)[:2000]
-    finally:
-        for p in written:
-            try:
-                if os.path.exists(p):
-                    os.unlink(p)
-            except OSError:
-                pass
-        shutil.rmtree(tmpdir, ignore_errors=True)
-        # The renderer-written overlays/frames live in a per-export dir under
-        # cache/video-export (validated at request time) — clean it up here.
-        if work_dir:
-            shutil.rmtree(work_dir, ignore_errors=True)
+
+
+def _cleanup_export(written: list[str], tmpdir: str, work_dir: Optional[str]) -> None:
+    for p in written:
+        try:
+            if os.path.exists(p):
+                os.unlink(p)
+        except OSError:
+            pass
+    shutil.rmtree(tmpdir, ignore_errors=True)
+    # The renderer-written overlays/frames live in a per-export dir under
+    # cache/video-export (validated at request time) — clean it up here.
+    if work_dir:
+        shutil.rmtree(work_dir, ignore_errors=True)
 
 
 def _prune_stale_work_dirs() -> None:

@@ -37,7 +37,11 @@ export const MIN_CONFIDENCE = 0.18
  *
  * Length = floor(pcm.length / hopSize). All values ≥ 0.
  */
-export function onsetEnvelope(pcm: Float32Array, _sampleRate: number, hopSize: number): Float32Array {
+export function onsetEnvelope(
+  pcm: Float32Array,
+  _sampleRate: number,
+  hopSize: number
+): Float32Array {
   const frames = Math.floor(pcm.length / hopSize)
   const energy = new Float32Array(frames)
   for (let f = 0; f < frames; f++) {
@@ -316,7 +320,8 @@ export async function analyzeBeats(
     const res = await fetch(url)
     const arrayBuf = await res.arrayBuffer()
     const Ctx: typeof OfflineAudioContext =
-      (window as unknown as { OfflineAudioContext: typeof OfflineAudioContext }).OfflineAudioContext ||
+      (window as unknown as { OfflineAudioContext: typeof OfflineAudioContext })
+        .OfflineAudioContext ||
       (window as unknown as { webkitOfflineAudioContext: typeof OfflineAudioContext })
         .webkitOfflineAudioContext
     const ctx = new Ctx(1, 1, 44100)

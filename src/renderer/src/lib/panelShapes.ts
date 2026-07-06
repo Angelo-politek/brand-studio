@@ -77,7 +77,14 @@ export const PANEL_DEFAULTS: Record<PanelComponentKind, Required<PanelComponentP
   pushbutton: { color: '#2b2b31', accent: '#f97316', value: 0, ticks: 0, on: false, text: '' },
   screw: { color: '#9aa0a6', accent: '#55585e', value: 0.3, ticks: 0, on: true, text: '' },
   display7seg: { color: '#160404', accent: '#ff3b30', value: 0, ticks: 0, on: true, text: '120' },
-  displayOled: { color: '#05070d', accent: '#7ecbff', value: 0, ticks: 0, on: true, text: 'OSC A\nSAW  50%' }
+  displayOled: {
+    color: '#05070d',
+    accent: '#7ecbff',
+    value: 0,
+    ticks: 0,
+    on: true,
+    text: 'OSC A\nSAW  50%'
+  }
 }
 
 /** Human labels for the elements panel / inspector. */

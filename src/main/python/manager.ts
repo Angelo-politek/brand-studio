@@ -33,8 +33,7 @@ function backendDir(): string {
  * under resources/sidecar; a dev checkout may have a local build to test with.
  */
 function frozenSidecarPath(dir: string): string | null {
-  const exeName =
-    process.platform === 'win32' ? 'brandstudio-sidecar.exe' : 'brandstudio-sidecar'
+  const exeName = process.platform === 'win32' ? 'brandstudio-sidecar.exe' : 'brandstudio-sidecar'
   const candidates = is.dev
     ? [join(dir, 'dist-sidecar', 'brandstudio-sidecar', exeName)]
     : [join(process.resourcesPath, 'sidecar', 'brandstudio-sidecar', exeName)]

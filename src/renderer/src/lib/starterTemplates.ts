@@ -1,5 +1,11 @@
 import { v4 as uuid } from 'uuid'
-import type { Brand, CanvasSpec, Layer, PanelComponentKind, PanelComponentParams } from '@shared/types'
+import type {
+  Brand,
+  CanvasSpec,
+  Layer,
+  PanelComponentKind,
+  PanelComponentParams
+} from '@shared/types'
 
 /**
  * Built-in starter templates for static designs. Each produces a ready-made

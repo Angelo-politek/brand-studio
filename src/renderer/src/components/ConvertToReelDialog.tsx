@@ -3,7 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { X, Music, Loader2, Film } from 'lucide-react'
 import { useEditorStore } from '@renderer/stores/editorStore'
 import { useVideoStore } from '@renderer/stores/videoStore'
-import { analyzeBeats, findHighlightMs, MIN_CONFIDENCE, type BeatAnalysis } from '@renderer/lib/beatDetect'
+import {
+  analyzeBeats,
+  findHighlightMs,
+  MIN_CONFIDENCE,
+  type BeatAnalysis
+} from '@renderer/lib/beatDetect'
 import { pagesToScenes, type ReelFit, type ReelIntensity } from '@renderer/lib/designToReel'
 import { mediaUrl } from '@shared/ipc'
 import { cn } from '@renderer/lib/cn'
@@ -31,10 +36,30 @@ const FORMAT_OPTIONS: {
   size: { width: number; height: number } | null
 }[] = [
   { value: 'keep', label: 'Mantieni foglio', hint: 'Stesse dimensioni del design', size: null },
-  { value: '9x16', label: 'Reel 9:16', hint: '1080×1920 · Reel/TikTok/Shorts', size: { width: 1080, height: 1920 } },
-  { value: '1x1', label: 'Quadrato 1:1', hint: '1080×1080 · Feed', size: { width: 1080, height: 1080 } },
-  { value: '4x5', label: 'Verticale 4:5', hint: '1080×1350 · Feed verticale', size: { width: 1080, height: 1350 } },
-  { value: '16x9', label: 'Orizzontale 16:9', hint: '1920×1080 · YouTube', size: { width: 1920, height: 1080 } }
+  {
+    value: '9x16',
+    label: 'Reel 9:16',
+    hint: '1080×1920 · Reel/TikTok/Shorts',
+    size: { width: 1080, height: 1920 }
+  },
+  {
+    value: '1x1',
+    label: 'Quadrato 1:1',
+    hint: '1080×1080 · Feed',
+    size: { width: 1080, height: 1080 }
+  },
+  {
+    value: '4x5',
+    label: 'Verticale 4:5',
+    hint: '1080×1350 · Feed verticale',
+    size: { width: 1080, height: 1350 }
+  },
+  {
+    value: '16x9',
+    label: 'Orizzontale 16:9',
+    hint: '1920×1080 · YouTube',
+    size: { width: 1920, height: 1080 }
+  }
 ]
 
 interface BeatState extends BeatAnalysis {
@@ -113,8 +138,7 @@ export default function ConvertToReelDialog({ onClose }: { onClose: () => void }
       const width = target ? target.width : pages[0].canvas.width
       const height = target ? target.height : pages[0].canvas.height
 
-      const hasBeats =
-        syncToBeat && beat.beats.length > 0 && beat.confidence >= MIN_CONFIDENCE
+      const hasBeats = syncToBeat && beat.beats.length > 0 && beat.confidence >= MIN_CONFIDENCE
 
       // First pass with absolute beats to get the total reel duration.
       const firstPass = pagesToScenes(pages, {
@@ -140,9 +164,7 @@ export default function ConvertToReelDialog({ onClose }: { onClose: () => void }
           hasBeats ? beat.beats : undefined
         )
         if (hasBeats && audioInMs > 0) {
-          const relBeats = beat.beats
-            .filter((b) => b >= audioInMs)
-            .map((b) => b - audioInMs)
+          const relBeats = beat.beats.filter((b) => b >= audioInMs).map((b) => b - audioInMs)
           scenes = pagesToScenes(pages, {
             width,
             height,

@@ -86,9 +86,7 @@ export default function LayersPanel(): JSX.Element {
                 active ? 'bg-surface-3' : 'hover:bg-surface-2'
               )}
             >
-              {layer.groupId && (
-                <GroupIcon size={11} className="shrink-0 text-accent/70 -mr-1" />
-              )}
+              {layer.groupId && <GroupIcon size={11} className="shrink-0 text-accent/70 -mr-1" />}
               <Icon size={14} className="shrink-0 text-ink-faint" />
               <span className={cn('flex-1 truncate text-xs', !layer.visible && 'opacity-40')}>
                 {layer.name}

@@ -183,8 +183,7 @@ export default function Inspector(): JSX.Element | null {
       try {
         const all = await window.api.assets.list({ brandId })
         const prev = all.find(
-          (a) =>
-            a.filePath === oldSrc && a.tags.some((t) => ['nobg', 'brand-match'].includes(t))
+          (a) => a.filePath === oldSrc && a.tags.some((t) => ['nobg', 'brand-match'].includes(t))
         )
         if (prev) await window.api.assets.delete(prev.id)
       } catch {
@@ -551,7 +550,6 @@ export default function Inspector(): JSX.Element | null {
               <Num value={layer.shadowOffsetX} onChange={(v) => set({ shadowOffsetX: v })} />
               <Num value={layer.shadowOffsetY} onChange={(v) => set({ shadowOffsetY: v })} />
             </Row>
-
           </>
         )}
 

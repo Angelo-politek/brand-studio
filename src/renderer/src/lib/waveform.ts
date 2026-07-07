@@ -67,30 +67,41 @@ async function compute(url: string, buckets: number): Promise<Waveform | null> {
 }
 
 /**
- * Draw a slice of a waveform into a canvas as a centered min/max strip.
- * `fromMs`/`toMs` select the audible window (e.g. music inMs offset).
+ * Draw the WHOLE song as a centered min/max strip, dimming the parts outside
+ * the selected reel segment `[selStartMs, selEndMs]` so the user sees exactly
+ * which slice of the track the reel uses and where it sits in the song.
  */
 export function drawWaveform(
   canvas: HTMLCanvasElement,
   wf: Waveform,
   color: string,
-  fromMs = 0,
-  toMs = wf.durationMs
+  selStartMs = 0,
+  selEndMs = wf.durationMs
 ): void {
   const ctx = canvas.getContext('2d')
   if (!ctx) return
   const { width, height } = canvas
   ctx.clearRect(0, 0, width, height)
-  ctx.fillStyle = color
   const n = wf.peaks.length
-  const b0 = Math.max(0, Math.floor((fromMs / wf.durationMs) * n))
-  const b1 = Math.min(n, Math.ceil((toMs / wf.durationMs) * n))
-  const span = Math.max(1, b1 - b0)
   const mid = height / 2
+  const dur = wf.durationMs || 1
+  const selX0 = (selStartMs / dur) * width
+  const selX1 = Math.min(width, (selEndMs / dur) * width)
+
+  // Shaded selection band behind the wave.
+  ctx.fillStyle = 'rgba(249, 115, 22, 0.18)'
+  ctx.fillRect(selX0, 0, Math.max(1, selX1 - selX0), height)
+
   for (let x = 0; x < width; x++) {
-    const b = b0 + Math.floor((x / width) * span)
+    const b = Math.floor((x / width) * n)
     const amp = wf.peaks[Math.min(n - 1, b)] ?? 0
     const h = Math.max(1, amp * (height - 2))
+    // Bright inside the selection, dim outside.
+    ctx.fillStyle = x >= selX0 && x <= selX1 ? color : 'rgba(148, 163, 184, 0.4)'
     ctx.fillRect(x, mid - h / 2, 1, h)
   }
+
+  // Start marker.
+  ctx.fillStyle = '#f97316'
+  ctx.fillRect(Math.max(0, selX0 - 1), 0, 2, height)
 }

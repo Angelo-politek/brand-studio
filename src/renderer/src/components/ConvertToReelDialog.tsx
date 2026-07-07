@@ -140,39 +140,45 @@ export default function ConvertToReelDialog({ onClose }: { onClose: () => void }
 
       const hasBeats = syncToBeat && beat.beats.length > 0 && beat.confidence >= MIN_CONFIDENCE
 
-      // First pass with absolute beats to get the total reel duration.
-      const firstPass = pagesToScenes(pages, {
-        width,
-        height,
-        fit,
-        intensity,
-        beats: hasBeats ? beat.beats : null,
-        wpm
-      })
+      // Iterate to a consistent segment: layout → pick highlight for that
+      // length → relayout against beats relative to the highlight → recompute
+      // the highlight with the NEW length. Two rounds converge in practice, and
+      // this fixes the old bug where the chosen segment length didn't match the
+      // final reel length (scenes off-beat / music running out).
+      const layout = (
+        beats: number[] | null
+      ): ReturnType<typeof pagesToScenes> =>
+        pagesToScenes(pages, { width, height, fit, intensity, beats, wpm })
 
-      // Pick the most energetic section of the track for that duration (the
-      // drop/chorus), starting on a beat, then express beats relative to it so
-      // the scenes line up with the chosen segment.
+      const first = layout(hasBeats ? beat.beats : null)
+      let scenes = first.scenes
       let audioInMs = 0
-      let scenes = firstPass.scenes
+
       if (selectedTrack && beat.loudness.length > 0) {
+        // Round 1: highlight for the first-pass length.
         audioInMs = findHighlightMs(
           beat.loudness,
           beat.loudnessRate,
           beat.durationMs,
-          firstPass.totalMs,
+          first.totalMs,
           hasBeats ? beat.beats : undefined
         )
         if (hasBeats && audioInMs > 0) {
+          // Relayout with beats relative to the chosen start.
           const relBeats = beat.beats.filter((b) => b >= audioInMs).map((b) => b - audioInMs)
-          scenes = pagesToScenes(pages, {
-            width,
-            height,
-            fit,
-            intensity,
-            beats: relBeats,
-            wpm
-          }).scenes
+          const second = layout(relBeats)
+          scenes = second.scenes
+          // Round 2: re-pick the highlight for the ACTUAL reel length so the
+          // audio segment and the reel are the same duration and beat-aligned.
+          audioInMs = findHighlightMs(
+            beat.loudness,
+            beat.loudnessRate,
+            beat.durationMs,
+            second.totalMs,
+            beat.beats
+          )
+          const relBeats2 = beat.beats.filter((b) => b >= audioInMs).map((b) => b - audioInMs)
+          scenes = layout(relBeats2).scenes
         }
       }
 

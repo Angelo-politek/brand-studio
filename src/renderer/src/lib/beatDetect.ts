@@ -275,8 +275,10 @@ export function findHighlightMs(
         best = b
       }
     }
-    // Only snap if it doesn't push the window past the track end.
-    if (best + windowMs <= durationMs) startMs = best
+    // Always snap to the beat; if that pushes the window past the track end,
+    // pull the whole window back so it still fits AND stays beat-aligned.
+    startMs = best
+    if (startMs + windowMs > durationMs) startMs = Math.max(0, durationMs - windowMs)
   }
   return Math.max(0, Math.round(startMs))
 }

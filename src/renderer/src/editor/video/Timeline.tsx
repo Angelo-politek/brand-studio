@@ -10,7 +10,9 @@ import {
   ArrowRightLeft,
   Volume2,
   VolumeX,
-  Scissors
+  Scissors,
+  Play,
+  Pause
 } from 'lucide-react'
 import { useVideoEditorStore } from '@renderer/stores/videoEditorStore'
 import { cn } from '@renderer/lib/cn'
@@ -367,12 +369,14 @@ export default function Timeline({
               <AudioWaveStrip
                 src={audio.src}
                 inMs={audio.inMs}
+                reelMs={totalMs}
                 onShift={(inMs) => setAudio({ ...audio, inMs })}
               />
-              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-ink-muted truncate max-w-[50%] bg-surface-1/70 px-1 rounded pointer-events-none">
+              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-ink-muted truncate max-w-[45%] bg-surface-1/70 px-1 rounded pointer-events-none">
                 {audio.src.split(/[/\\]/).pop()}
               </span>
             </div>
+            <SegmentPreviewButton src={audio.src} inMs={audio.inMs} reelMs={totalMs} />
             <label
               className="flex items-center gap-1 text-[10px] text-ink-faint"
               title="Music start offset (seconds) — or drag the waveform"
@@ -437,10 +441,12 @@ export default function Timeline({
 function AudioWaveStrip({
   src,
   inMs,
+  reelMs,
   onShift
 }: {
   src: string
   inMs: number
+  reelMs: number
   onShift: (inMs: number) => void
 }): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -451,27 +457,30 @@ function AudioWaveStrip({
       const c = canvasRef.current
       if (!alive || !wf || !c) return
       durRef.current = wf.durationMs
-      drawWaveform(c, wf, 'rgba(249, 115, 22, 0.75)', inMs)
+      // Whole song, with the reel segment [inMs, inMs+reelMs] highlighted.
+      drawWaveform(c, wf, 'rgba(249, 115, 22, 0.9)', inMs, inMs + reelMs)
     })
     return () => {
       alive = false
     }
-  }, [src, inMs])
+  }, [src, inMs, reelMs])
+
+  // Click / drag positions the segment START where the pointer is.
+  function seekTo(clientX: number): void {
+    const el = canvasRef.current
+    const dur = durRef.current
+    if (!el || !dur) return
+    const rect = el.getBoundingClientRect()
+    const frac = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
+    const maxStart = Math.max(0, dur - reelMs)
+    onShift(Math.round(Math.min(maxStart, frac * dur)))
+  }
 
   function onDragStart(e: React.MouseEvent): void {
     e.preventDefault()
-    const startX = e.clientX
-    const startIn = inMs
-    const el = canvasRef.current
-    const laneW = el?.clientWidth || 1
-    function onMove(ev: MouseEvent): void {
-      const dur = durRef.current
-      if (!dur) return
-      // Dragging the wave left plays a LATER part of the track (offset grows).
-      const deltaMs = (-(ev.clientX - startX) / laneW) * dur
-      onShift(Math.max(0, Math.min(dur - 500, Math.round(startIn + deltaMs))))
-    }
-    function onUp(): void {
+    seekTo(e.clientX)
+    const onMove = (ev: MouseEvent): void => seekTo(ev.clientX)
+    const onUp = (): void => {
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
     }
@@ -485,8 +494,61 @@ function AudioWaveStrip({
       width={960}
       height={24}
       onMouseDown={onDragStart}
-      className="absolute inset-0 w-full h-full cursor-ew-resize"
-      title="Drag to shift where the music starts"
+      className="absolute inset-0 w-full h-full cursor-pointer"
+      title="Click or drag on the song to set where the reel's music starts"
     />
+  )
+}
+
+/** Play just the chosen music segment [inMs, inMs+reelMs] to audition it. */
+function SegmentPreviewButton({
+  src,
+  inMs,
+  reelMs
+}: {
+  src: string
+  inMs: number
+  reelMs: number
+}): JSX.Element {
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const stopRef = useRef<number | null>(null)
+  const [playing, setPlaying] = useState(false)
+
+  function stop(): void {
+    if (stopRef.current) window.clearTimeout(stopRef.current)
+    stopRef.current = null
+    audioRef.current?.pause()
+    setPlaying(false)
+  }
+
+  function toggle(): void {
+    if (playing) {
+      stop()
+      return
+    }
+    if (!audioRef.current) {
+      audioRef.current = new Audio(mediaUrl(src))
+    }
+    const a = audioRef.current
+    a.currentTime = inMs / 1000
+    void a.play().catch(() => {})
+    setPlaying(true)
+    stopRef.current = window.setTimeout(stop, reelMs)
+  }
+
+  useEffect(() => () => stop(), [])
+
+  return (
+    <button
+      onClick={toggle}
+      className={cn(
+        'text-[10px] px-1.5 py-0.5 rounded border flex items-center gap-1',
+        playing ? 'border-accent text-accent' : 'border-line text-ink-faint hover:text-ink'
+      )}
+      title="Listen to the chosen segment"
+    >
+      {playing ? <Pause size={11} /> : <Play size={11} />}
+      Segment
+    </button>
   )
 }

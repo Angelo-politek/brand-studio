@@ -1,6 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Play, Pause, Download, Check, Loader2, LayoutTemplate } from 'lucide-react'
+import {
+  ArrowLeft,
+  Play,
+  Pause,
+  SkipBack,
+  Download,
+  Check,
+  Loader2,
+  LayoutTemplate
+} from 'lucide-react'
 import { useVideoEditorStore } from '@renderer/stores/videoEditorStore'
 import { useBrandStore } from '@renderer/stores/brandStore'
 import { ensureBrandFonts } from '@renderer/lib/fonts'
@@ -85,32 +94,32 @@ export default function VideoEditor(): JSX.Element {
   const audioSrc = audio?.src
   const audioVolume = audio?.volume
 
-  // Start/stop background music on play-state changes only. We seek once on
-  // play (and on pause) — NOT every animation frame, which previously caused
-  // constant currentTime resets and a glitchy/stuttering preview. Fresh playhead
-  // values are read from the store so this effect need not re-run per frame.
+  /** Global timeline position (ms) = scenes before the active one + playhead. */
+  function globalElapsedMs(): number {
+    const st = useVideoEditorStore.getState()
+    const idx = Math.max(
+      0,
+      st.scenes.findIndex((s) => s.id === st.activeSceneId)
+    )
+    return st.scenes.slice(0, idx).reduce((sum, s) => sum + s.durationMs, 0) + st.playheadMs
+  }
+
+  // Start/stop background music on play-state changes. The play effect seeds the
+  // position; the RAF clock below keeps it locked to the visuals during
+  // playback (previously it drifted because it was never re-synced).
   useEffect(() => {
     const a = musicRef.current
     const st = useVideoEditorStore.getState()
     if (!a || !st.audio) return
-    const offset =
-      st.scenes
-        .slice(
-          0,
-          Math.max(
-            0,
-            st.scenes.findIndex((s) => s.id === st.activeSceneId)
-          )
-        )
-        .reduce((sum, s) => sum + s.durationMs, 0) + st.playheadMs
-    const target = (st.audio.inMs + offset) / 1000
+    const target = (st.audio.inMs + globalElapsedMs()) / 1000
     if (playing) {
-      if (Math.abs(a.currentTime - target) > 0.3) a.currentTime = target
+      a.currentTime = target
       void a.play().catch(() => {})
     } else {
       a.pause()
       a.currentTime = target
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playing, audioSrc])
 
   // Keep volume in sync without touching playback position.
@@ -119,21 +128,16 @@ export default function VideoEditor(): JSX.Element {
     if (a && audioVolume != null) a.volume = audioVolume
   }, [audioVolume])
 
-  // Follow scrubbing while paused, so pressing Play resumes the music from the
-  // scrubbed position instead of wherever it last stopped. No-op during
-  // playback (the RAF clock advances playheadMs every frame — reseeking there
-  // would stutter; the play/pause effect above handles that case).
+  // Re-seek the music whenever the position changes WHILE PAUSED (scrub, scene
+  // switch, manual inMs edit) so pressing Play resumes from exactly there. This
+  // no longer bails during playback — the RAF loop owns sync when playing.
   useEffect(() => {
     if (playing) return
     const a = musicRef.current
     if (!a || !audio) return
-    const idx = Math.max(
-      0,
-      scenes.findIndex((s) => s.id === activeSceneId)
-    )
-    const offset = scenes.slice(0, idx).reduce((sum, s) => sum + s.durationMs, 0) + playheadMs
-    a.currentTime = (audio.inMs + offset) / 1000
-  }, [playing, playheadMs, activeSceneId, scenes, audio])
+    a.currentTime = (audio.inMs + globalElapsedMs()) / 1000
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playing, playheadMs, activeSceneId, audio?.inMs, audioSrc])
 
   // Load project once.
   useEffect(() => {
@@ -183,7 +187,9 @@ export default function VideoEditor(): JSX.Element {
     return () => clearTimeout(t)
   }, [name, scenes, audio, store])
 
-  // Simple scene-local playback clock.
+  // Scene-local playback clock. When music is present it is the MASTER clock:
+  // the playhead is derived from audio.currentTime so visuals never drift from
+  // the sound. Without music, performance.now() advances the playhead.
   useEffect(() => {
     if (!playing) return
     let raf = 0
@@ -194,21 +200,42 @@ export default function VideoEditor(): JSX.Element {
       const cur = store.getState()
       const scene = cur.scenes.find((s) => s.id === cur.activeSceneId)
       if (!scene) return
-      const next = cur.playheadMs + dt
-      if (next >= scene.durationMs) {
-        // Advance to next scene or stop at the end.
-        const idx = cur.scenes.findIndex((s) => s.id === cur.activeSceneId)
-        if (idx < cur.scenes.length - 1) {
-          cur.setActiveScene(cur.scenes[idx + 1].id)
-          cur.setPlayhead(0)
-        } else {
-          cur.setPlaying(false)
-          cur.setPlayhead(0)
-          return
-        }
+
+      const a = musicRef.current
+      const idx = cur.scenes.findIndex((s) => s.id === cur.activeSceneId)
+      const before = cur.scenes.slice(0, idx).reduce((sum, s) => sum + s.durationMs, 0)
+
+      // Global elapsed either from the audio master clock or the wall clock.
+      let globalMs: number
+      if (a && cur.audio && !a.paused) {
+        globalMs = a.currentTime * 1000 - cur.audio.inMs
+        if (globalMs < 0) globalMs = 0
       } else {
-        cur.setPlayhead(next)
+        globalMs = before + cur.playheadMs + dt
       }
+
+      // Map the global position back onto the scene strip.
+      let acc = 0
+      let targetScene = cur.scenes[cur.scenes.length - 1]
+      let localMs = targetScene.durationMs
+      for (const s of cur.scenes) {
+        if (globalMs < acc + s.durationMs) {
+          targetScene = s
+          localMs = globalMs - acc
+          break
+        }
+        acc += s.durationMs
+      }
+
+      const totalMs = cur.scenes.reduce((sum, s) => sum + s.durationMs, 0)
+      if (globalMs >= totalMs) {
+        cur.setPlaying(false)
+        cur.setActiveScene(cur.scenes[0].id)
+        cur.setPlayhead(0)
+        return
+      }
+      if (targetScene.id !== cur.activeSceneId) cur.setActiveScene(targetScene.id)
+      cur.setPlayhead(Math.max(0, localMs))
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
@@ -450,9 +477,23 @@ export default function VideoEditor(): JSX.Element {
             onChange={(e) => setName(e.target.value)}
           />
           <button
-            onClick={() => setPlaying(!playing)}
+            onClick={() => {
+              // Restart from the top of the reel.
+              const st = store.getState()
+              st.setPlaying(false)
+              st.setActiveScene(st.scenes[0].id)
+              st.setPlayhead(0)
+              requestAnimationFrame(() => st.setPlaying(true))
+            }}
             className="btn-ghost px-2 py-1.5 ml-2"
-            title={playing ? 'Pause (resumes from the playhead)' : 'Play'}
+            title="Play from start"
+          >
+            <SkipBack size={16} />
+          </button>
+          <button
+            onClick={() => setPlaying(!playing)}
+            className="btn-ghost px-2 py-1.5"
+            title={playing ? 'Pause (resumes from the playhead)' : 'Play from the playhead'}
           >
             {playing ? <Pause size={16} /> : <Play size={16} />}
           </button>

@@ -127,4 +127,23 @@ describe('findHighlightMs', () => {
     const start = findHighlightMs(env, rate, 12000, 2000, beats)
     expect(start % 500).toBe(0) // landed on a beat
   })
+
+  it('keeps a late highlight beat-aligned and inside the track', () => {
+    // Loud burst near the very end; the window would overrun without clamping.
+    const sr = 44100
+    const hop = 512
+    const durMs = 10000
+    const pcm = new Float32Array(sr * 10)
+    for (let i = 0; i < pcm.length; i++) {
+      const loud = i > sr * 8.5 // loudest in the final 1.5s
+      pcm[i] = (loud ? 0.95 : 0.05) * Math.sin((2 * Math.PI * 220 * i) / sr)
+    }
+    const env = loudnessEnvelope(pcm, hop)
+    const rate = sr / hop
+    const beats = Array.from({ length: 40 }, (_, i) => i * 250)
+    const windowMs = 2000
+    const start = findHighlightMs(env, rate, durMs, windowMs, beats)
+    expect(start % 250).toBe(0) // still on a beat
+    expect(start + windowMs).toBeLessThanOrEqual(durMs) // fits inside the track
+  })
 })

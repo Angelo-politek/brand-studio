@@ -13,6 +13,7 @@ import {
 import type { KonvaEventObject, Filter } from 'konva/lib/Node'
 import { mediaUrl } from '@shared/ipc'
 import { useImageWithStatus } from '@renderer/lib/useImage'
+import { Temperature } from '@renderer/lib/konvaFilters'
 import PanelComponentNode from './panel/PanelComponentNode'
 import type { Layer } from '@shared/types'
 
@@ -109,16 +110,20 @@ const SIDE_ANCHORS = new Set(['middle-left', 'middle-right', 'top-center', 'bott
 function resolveTransform(layer: Layer, n: Konva.Node, anchor: string | null): Partial<Layer> {
   const sx = n.scaleX()
   const sy = n.scaleY()
+  // Flip lives in the SIGN of the scale: normalize the magnitude into
+  // width/height but keep the sign, or resizing would silently un-mirror.
+  const signX = Math.sign(sx) || 1
+  const signY = Math.sign(sy) || 1
   const base: Partial<Layer> = {
     x: n.x(),
     y: n.y(),
     rotation: n.rotation(),
-    scaleX: 1,
-    scaleY: 1
+    scaleX: signX,
+    scaleY: signY
   }
 
-  const newW = Math.max(1, layer.width * sx)
-  const newH = Math.max(1, layer.height * sy)
+  const newW = Math.max(1, layer.width * Math.abs(sx))
+  const newH = Math.max(1, layer.height * Math.abs(sy))
   const isSide = anchor != null && SIDE_ANCHORS.has(anchor)
 
   // Text: corners scale the font proportionally; sides reflow the box width.
@@ -126,7 +131,7 @@ function resolveTransform(layer: Layer, n: Konva.Node, anchor: string | null): P
     if (isSide) {
       return { ...base, width: newW }
     }
-    const factor = sx !== 1 ? sx : sy
+    const factor = Math.abs(sx) !== 1 ? Math.abs(sx) : Math.abs(sy)
     return {
       ...base,
       width: newW,
@@ -187,7 +192,8 @@ function ImageNode({
   if (f.contrast) filters.push(Konva.Filters.Contrast)
   if (f.blur) filters.push(Konva.Filters.Blur)
   if (f.grayscale) filters.push(Konva.Filters.Grayscale)
-  if (f.saturation) filters.push(Konva.Filters.HSL)
+  if (f.saturation || f.hue) filters.push(Konva.Filters.HSL)
+  if (f.temperature) filters.push(Temperature)
 
   useEffect(() => {
     const node = ref.current
@@ -203,6 +209,8 @@ function ImageNode({
     f.blur,
     f.grayscale,
     f.saturation,
+    f.hue,
+    f.temperature,
     layer.width,
     layer.height,
     layer.crop
@@ -277,6 +285,12 @@ function ImageNode({
         contrast={f.contrast ?? 0}
         blurRadius={f.blur ?? 0}
         saturation={f.saturation ?? 0}
+        hue={f.hue ?? 0}
+        temperature={f.temperature ?? 0}
+        shadowColor={layer.shadowColor}
+        shadowBlur={layer.shadowBlur ?? 0}
+        shadowOffsetX={layer.shadowOffsetX ?? 0}
+        shadowOffsetY={layer.shadowOffsetY ?? 0}
       />
       {co && co.opacity > 0 && (
         <Rect
@@ -335,6 +349,10 @@ export default function LayerNode({
           cornerRadius={layer.cornerRadius ?? 0}
           stroke={layer.strokeWidth ? layer.strokeColor : undefined}
           strokeWidth={layer.strokeWidth ?? 0}
+          shadowColor={layer.shadowColor}
+          shadowBlur={layer.shadowBlur ?? 0}
+          shadowOffsetX={layer.shadowOffsetX ?? 0}
+          shadowOffsetY={layer.shadowOffsetY ?? 0}
         />
       )
     case 'image':
@@ -350,6 +368,10 @@ export default function LayerNode({
             fill={layer.fill}
             stroke={layer.strokeWidth ? layer.strokeColor : undefined}
             strokeWidth={layer.strokeWidth ?? 0}
+            shadowColor={layer.shadowColor}
+            shadowBlur={layer.shadowBlur ?? 0}
+            shadowOffsetX={layer.shadowOffsetX ?? 0}
+            shadowOffsetY={layer.shadowOffsetY ?? 0}
           />
         </Group>
       )
@@ -369,6 +391,10 @@ export default function LayerNode({
             stroke={layer.strokeWidth ? layer.strokeColor : undefined}
             strokeWidth={layer.strokeWidth ?? 0}
             strokeScaleEnabled={false}
+            shadowColor={layer.shadowColor}
+            shadowBlur={layer.shadowBlur ?? 0}
+            shadowOffsetX={layer.shadowOffsetX ?? 0}
+            shadowOffsetY={layer.shadowOffsetY ?? 0}
           />
         </Group>
       )
@@ -388,6 +414,10 @@ export default function LayerNode({
             stroke={layer.strokeWidth ? layer.strokeColor : undefined}
             strokeWidth={layer.strokeWidth ?? 0}
             strokeScaleEnabled={false}
+            shadowColor={layer.shadowColor}
+            shadowBlur={layer.shadowBlur ?? 0}
+            shadowOffsetX={layer.shadowOffsetX ?? 0}
+            shadowOffsetY={layer.shadowOffsetY ?? 0}
           />
         </Group>
       )

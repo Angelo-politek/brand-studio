@@ -1,5 +1,15 @@
 import { useRef, useState } from 'react'
-import { AlignLeft, AlignCenter, AlignRight, Wand2, Loader2, Palette, Crop } from 'lucide-react'
+import {
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  Wand2,
+  Loader2,
+  Palette,
+  Crop,
+  FlipHorizontal2,
+  FlipVertical2
+} from 'lucide-react'
 import { useEditorStoreApi, useIsVideoEditor } from './editorStoreContext'
 import { useVideoEditorStore } from '@renderer/stores/videoEditorStore'
 import { useCurrentBrand } from '@renderer/stores/brandStore'
@@ -536,16 +546,6 @@ export default function Inspector(): JSX.Element | null {
             <Row label="Stroke W">
               <Num value={layer.strokeWidth} min={0} onChange={(v) => set({ strokeWidth: v })} />
             </Row>
-            <Row label="Shadow">
-              <ColorField value={layer.shadowColor} onChange={(v) => set({ shadowColor: v })} />
-            </Row>
-            <Row label="Shadow Blur">
-              <Num value={layer.shadowBlur} min={0} onChange={(v) => set({ shadowBlur: v })} />
-            </Row>
-            <Row label="Shadow Off">
-              <Num value={layer.shadowOffsetX} onChange={(v) => set({ shadowOffsetX: v })} />
-              <Num value={layer.shadowOffsetY} onChange={(v) => set({ shadowOffsetY: v })} />
-            </Row>
           </>
         )}
 
@@ -636,6 +636,32 @@ export default function Inspector(): JSX.Element | null {
                 value={layer.filters?.saturation ?? 0}
                 onChange={(e) =>
                   set({ filters: { ...layer.filters, saturation: Number(e.target.value) } })
+                }
+                className="w-full"
+              />
+            </Row>
+            <Row label="Hue">
+              <input
+                type="range"
+                min={-180}
+                max={180}
+                step={1}
+                value={layer.filters?.hue ?? 0}
+                onChange={(e) =>
+                  set({ filters: { ...layer.filters, hue: Number(e.target.value) } })
+                }
+                className="w-full"
+              />
+            </Row>
+            <Row label="Temp">
+              <input
+                type="range"
+                min={-1}
+                max={1}
+                step={0.05}
+                value={layer.filters?.temperature ?? 0}
+                onChange={(e) =>
+                  set({ filters: { ...layer.filters, temperature: Number(e.target.value) } })
                 }
                 className="w-full"
               />
@@ -834,6 +860,28 @@ export default function Inspector(): JSX.Element | null {
           </>
         )}
 
+        {/* Shadow — common to text, shapes and images */}
+        {(layer.type === 'text' ||
+          layer.type === 'rect' ||
+          layer.type === 'circle' ||
+          layer.type === 'triangle' ||
+          layer.type === 'polygon' ||
+          layer.type === 'image') && (
+          <div className="pt-1 border-t border-line space-y-2">
+            <span className="text-[11px] text-ink-faint font-medium">Shadow</span>
+            <Row label="Color">
+              <ColorField value={layer.shadowColor} onChange={(v) => set({ shadowColor: v })} />
+            </Row>
+            <Row label="Blur">
+              <Num value={layer.shadowBlur} min={0} onChange={(v) => set({ shadowBlur: v })} />
+            </Row>
+            <Row label="Offset">
+              <Num value={layer.shadowOffsetX} onChange={(v) => set({ shadowOffsetX: v })} />
+              <Num value={layer.shadowOffsetY} onChange={(v) => set({ shadowOffsetY: v })} />
+            </Row>
+          </div>
+        )}
+
         {/* Common */}
         <Row label="Rotate">
           <Num
@@ -855,6 +903,22 @@ export default function Inspector(): JSX.Element | null {
             title="Reset rotation"
           >
             0°
+          </button>
+        </Row>
+        <Row label="Flip">
+          <button
+            onClick={() => set({ scaleX: -layer.scaleX })}
+            className="btn-surface px-2 py-1 text-[11px] shrink-0 flex-1"
+            title="Flip horizontally"
+          >
+            <FlipHorizontal2 size={13} /> Horizontal
+          </button>
+          <button
+            onClick={() => set({ scaleY: -layer.scaleY })}
+            className="btn-surface px-2 py-1 text-[11px] shrink-0 flex-1"
+            title="Flip vertically"
+          >
+            <FlipVertical2 size={13} /> Vertical
           </button>
         </Row>
         <Row label="Opacity">

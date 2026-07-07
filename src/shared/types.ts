@@ -195,6 +195,10 @@ export interface Layer {
     brightness?: number
     contrast?: number
     saturation?: number
+    /** Hue rotation in degrees (-180..180). */
+    hue?: number
+    /** Color temperature (-1 cold .. 1 warm). */
+    temperature?: number
     blur?: number
     grayscale?: boolean
   }

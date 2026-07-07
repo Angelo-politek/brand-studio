@@ -1,4 +1,13 @@
+import { useSyncExternalStore } from 'react'
+import { Pipette } from 'lucide-react'
 import { useCurrentBrand } from '@renderer/stores/brandStore'
+import {
+  getRecentColors,
+  pushRecentColor,
+  subscribeRecentColors,
+  hasEyeDropper,
+  pickWithEyeDropper
+} from '@renderer/lib/recentColors'
 
 interface Props {
   value: string | undefined
@@ -6,11 +15,22 @@ interface Props {
   label?: string
 }
 
-/** Color picker showing brand swatches + native color input. */
+/** Color picker: brand swatches + recent colors + eyedropper + native input. */
 export default function ColorPicker({ value, onChange, label }: Props): JSX.Element {
   const brand = useCurrentBrand()
   const colors = brand?.colors ?? []
   const hex = value ?? '#000000'
+  const recent = useSyncExternalStore(subscribeRecentColors, getRecentColors)
+
+  function commit(v: string): void {
+    onChange(v)
+    pushRecentColor(v)
+  }
+
+  async function eyedrop(): Promise<void> {
+    const picked = await pickWithEyeDropper()
+    if (picked) commit(picked)
+  }
 
   return (
     <div className="space-y-1.5">
@@ -33,12 +53,29 @@ export default function ColorPicker({ value, onChange, label }: Props): JSX.Elem
         </div>
       )}
 
-      {/* Native color + hex input */}
+      {/* Recently used */}
+      {recent.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {recent.map((c) => (
+            <button
+              key={c}
+              title={`Recent: ${c}`}
+              onClick={() => onChange(c)}
+              className={`h-5 w-5 rounded border transition-transform hover:scale-110 ${
+                hex.toLowerCase() === c ? 'border-accent' : 'border-line'
+              }`}
+              style={{ background: c }}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Native color + hex input + eyedropper */}
       <div className="flex items-center gap-2">
         <input
           type="color"
           value={hex}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => commit(e.target.value)}
           className="h-8 w-9 rounded bg-transparent border border-line cursor-pointer flex-shrink-0"
           title={label ?? 'Color'}
         />
@@ -50,7 +87,19 @@ export default function ColorPicker({ value, onChange, label }: Props): JSX.Elem
             const v = e.target.value
             if (/^#[0-9a-fA-F]{0,6}$/.test(v)) onChange(v)
           }}
+          onBlur={(e) => {
+            if (/^#[0-9a-fA-F]{6}$/.test(e.target.value)) pushRecentColor(e.target.value)
+          }}
         />
+        {hasEyeDropper() && (
+          <button
+            onClick={() => void eyedrop()}
+            className="h-8 w-8 grid place-items-center rounded border border-line text-ink-faint hover:text-ink flex-shrink-0"
+            title="Pick a color from the screen"
+          >
+            <Pipette size={14} />
+          </button>
+        )}
       </div>
     </div>
   )

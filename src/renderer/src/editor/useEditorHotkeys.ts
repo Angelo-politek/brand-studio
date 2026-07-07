@@ -1,6 +1,7 @@
 import { useHotkeys } from 'react-hotkeys-hook'
 import { useEditorStore } from '@renderer/stores/editorStore'
 import { callFit } from './fitRef'
+import type { Layer } from '@shared/types'
 
 /**
  * Minimal structural shape the hotkeys need. Both the design `editorStore` and
@@ -10,6 +11,7 @@ import { callFit } from './fitRef'
 interface HotkeyStore {
   getState: () => {
     selectedIds: string[]
+    layers: Layer[]
     removeSelected: () => void
     duplicateSelected: () => void
     nudgeSelected: (dx: number, dy: number) => void
@@ -19,6 +21,8 @@ interface HotkeyStore {
     setZoom: (z: number) => void
     groupSelected: () => void
     ungroupSelected: () => void
+    moveLayer: (id: string, dir: 'up' | 'down' | 'top' | 'bottom') => void
+    updateLayers: (patches: { id: string; patch: Partial<Layer> }[]) => void
   }
   temporal: { getState: () => { undo: () => void; redo: () => void } }
 }
@@ -66,6 +70,50 @@ export function useEditorHotkeys(store: HotkeyStore = useEditorStore as HotkeySt
   useHotkeys('mod+shift+g', (e) => {
     e.preventDefault()
     store.getState().ungroupSelected()
+  })
+
+  // Z-order: Ctrl+]/[ move forward/back, Ctrl+Shift+]/[ to front/back.
+  useHotkeys('mod+bracketright', (e) => {
+    e.preventDefault()
+    const s = store.getState()
+    for (const id of s.selectedIds) s.moveLayer(id, 'up')
+  })
+  useHotkeys('mod+bracketleft', (e) => {
+    e.preventDefault()
+    const s = store.getState()
+    for (const id of s.selectedIds) s.moveLayer(id, 'down')
+  })
+  useHotkeys('mod+shift+bracketright', (e) => {
+    e.preventDefault()
+    const s = store.getState()
+    for (const id of s.selectedIds) s.moveLayer(id, 'top')
+  })
+  useHotkeys('mod+shift+bracketleft', (e) => {
+    e.preventDefault()
+    const s = store.getState()
+    for (const id of s.selectedIds) s.moveLayer(id, 'bottom')
+  })
+
+  // Flip: Shift+H horizontal, Shift+V vertical.
+  useHotkeys('shift+h', (e) => {
+    const s = store.getState()
+    if (!s.selectedIds.length) return
+    e.preventDefault()
+    s.updateLayers(
+      s.layers
+        .filter((l) => s.selectedIds.includes(l.id))
+        .map((l) => ({ id: l.id, patch: { scaleX: -l.scaleX } }))
+    )
+  })
+  useHotkeys('shift+v', (e) => {
+    const s = store.getState()
+    if (!s.selectedIds.length) return
+    e.preventDefault()
+    s.updateLayers(
+      s.layers
+        .filter((l) => s.selectedIds.includes(l.id))
+        .map((l) => ({ id: l.id, patch: { scaleY: -l.scaleY } }))
+    )
   })
 
   useHotkeys('mod+0', (e) => {

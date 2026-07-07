@@ -1,9 +1,21 @@
 import Konva from 'konva'
+import type { Filter } from 'konva/lib/Node'
 import { mediaUrl } from '@shared/ipc'
 import { animateLayer } from './videoAnim'
 import { buildPanelPrimitives } from './panelShapes'
 import { dataUrlToBytes } from './bytes'
+import { Temperature } from './konvaFilters'
 import type { Layer, VideoScene } from '@shared/types'
+
+/** Shadow props shared by every shape/text/image node in the export path. */
+function shadowProps(layer: Layer): Record<string, unknown> {
+  return {
+    shadowColor: layer.shadowColor,
+    shadowBlur: layer.shadowBlur ?? 0,
+    shadowOffsetX: layer.shadowOffsetX ?? 0,
+    shadowOffsetY: layer.shadowOffsetY ?? 0
+  }
+}
 
 /** Load an image element (CORS-safe) for export rendering. */
 function loadImage(url: string): Promise<HTMLImageElement> {
@@ -37,6 +49,7 @@ async function addLayerNode(
       konvaLayer.add(
         new Konva.Text({
           ...common,
+          ...shadowProps(layer),
           text: layer.text ?? '',
           width: layer.width,
           fontFamily: layer.fontFamily ?? 'Inter',
@@ -55,6 +68,7 @@ async function addLayerNode(
       konvaLayer.add(
         new Konva.Rect({
           ...common,
+          ...shadowProps(layer),
           width: layer.width,
           height: layer.height,
           fill: layer.fill,
@@ -68,11 +82,59 @@ async function addLayerNode(
       konvaLayer.add(
         new Konva.Ellipse({
           ...common,
+          ...shadowProps(layer),
           x: layer.x + layer.width / 2,
           y: layer.y + layer.height / 2,
           radiusX: layer.width / 2,
           radiusY: layer.height / 2,
-          fill: layer.fill
+          fill: layer.fill,
+          stroke: layer.strokeWidth ? layer.strokeColor : undefined,
+          strokeWidth: layer.strokeWidth ?? 0
+        })
+      )
+      break
+    case 'triangle':
+    case 'polygon': {
+      const r = 50
+      konvaLayer.add(
+        new Konva.RegularPolygon({
+          ...common,
+          ...shadowProps(layer),
+          x: layer.x + layer.width / 2,
+          y: layer.y + layer.height / 2,
+          sides: layer.type === 'triangle' ? 3 : (layer.sides ?? 6),
+          radius: r,
+          scaleX: (layer.scaleX || 1) * (layer.width / (2 * r)),
+          scaleY: (layer.scaleY || 1) * (layer.height / (2 * r)),
+          fill: layer.fill,
+          stroke: layer.strokeWidth ? layer.strokeColor : undefined,
+          strokeWidth: layer.strokeWidth ?? 0,
+          strokeScaleEnabled: false
+        })
+      )
+      break
+    }
+    case 'line':
+      konvaLayer.add(
+        new Konva.Line({
+          ...common,
+          points: [0, layer.height / 2, layer.width, layer.height / 2],
+          stroke: layer.strokeColor ?? '#ffffff',
+          strokeWidth: layer.strokeWidth ?? 6,
+          lineCap: 'round'
+        })
+      )
+      break
+    case 'arrow':
+      konvaLayer.add(
+        new Konva.Arrow({
+          ...common,
+          points: [0, layer.height / 2, layer.width, layer.height / 2],
+          stroke: layer.strokeColor ?? '#ffffff',
+          fill: layer.strokeColor ?? '#ffffff',
+          strokeWidth: layer.strokeWidth ?? 6,
+          pointerLength: layer.pointerLength ?? 20,
+          pointerWidth: layer.pointerWidth ?? 20
         })
       )
       break
@@ -84,15 +146,52 @@ async function addLayerNode(
         img = await loadImage(url)
         imageCache?.set(url, img)
       }
-      konvaLayer.add(
-        new Konva.Image({
-          ...common,
-          image: img,
-          width: layer.width,
-          height: layer.height,
-          crop: layer.crop ?? undefined
-        })
-      )
+      const f = layer.filters ?? {}
+      const filters: Filter[] = []
+      if (f.brightness) filters.push(Konva.Filters.Brighten)
+      if (f.contrast) filters.push(Konva.Filters.Contrast)
+      if (f.blur) filters.push(Konva.Filters.Blur)
+      if (f.grayscale) filters.push(Konva.Filters.Grayscale)
+      if (f.saturation || f.hue) filters.push(Konva.Filters.HSL)
+      if (f.temperature) filters.push(Temperature)
+
+      const imgNode = new Konva.Image({
+        ...common,
+        ...shadowProps(layer),
+        image: img,
+        width: layer.width,
+        height: layer.height,
+        crop: layer.crop ?? undefined,
+        filters,
+        brightness: f.brightness ?? 0,
+        contrast: f.contrast ?? 0,
+        blurRadius: f.blur ?? 0,
+        saturation: f.saturation ?? 0,
+        hue: f.hue ?? 0,
+        temperature: f.temperature ?? 0
+      })
+      if (filters.length > 0) imgNode.cache()
+
+      const co = layer.colorOverlay
+      if (co && co.opacity > 0) {
+        // Wrap image + tint overlay in a Group so the tint composites over it.
+        const group = new Konva.Group(common)
+        imgNode.setAttrs({ x: 0, y: 0, rotation: 0, scaleX: 1, scaleY: 1, opacity: 1 })
+        group.add(imgNode)
+        group.add(
+          new Konva.Rect({
+            width: layer.width,
+            height: layer.height,
+            fill: co.hex,
+            opacity: co.opacity,
+            globalCompositeOperation:
+              co.blendMode === 'color' ? 'color' : (co.blendMode as GlobalCompositeOperation)
+          })
+        )
+        konvaLayer.add(group)
+      } else {
+        konvaLayer.add(imgNode)
+      }
       break
     }
     case 'panelComponent': {

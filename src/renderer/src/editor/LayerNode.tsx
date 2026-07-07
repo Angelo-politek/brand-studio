@@ -12,7 +12,7 @@ import {
 } from 'react-konva'
 import type { KonvaEventObject, Filter } from 'konva/lib/Node'
 import { mediaUrl } from '@shared/ipc'
-import { useImage } from '@renderer/lib/useImage'
+import { useImageWithStatus } from '@renderer/lib/useImage'
 import PanelComponentNode from './panel/PanelComponentNode'
 import type { Layer } from '@shared/types'
 
@@ -25,6 +25,12 @@ interface NodeCtx {
   /** Called during drag; return snapped {x,y} to override position. */
   onDragMove?: (id: string, x: number, y: number) => { x: number; y: number } | null
   onDragEnd?: (id: string) => void
+  /**
+   * Click WITHOUT drag (Konva suppresses click after a drag). Used to collapse
+   * a multi-selection to the clicked layer — mousedown must not do it, or
+   * dragging a multi-selection would move only one member.
+   */
+  onClickSelect?: (additive: boolean) => void
 }
 
 function useCommon(layer: Layer, ctx: NodeCtx): Record<string, unknown> {
@@ -41,6 +47,7 @@ function useCommon(layer: Layer, ctx: NodeCtx): Record<string, unknown> {
     draggable: !layer.locked,
     onMouseDown: (e: KonvaEventObject<MouseEvent>) => ctx.onSelect(e.evt.shiftKey),
     onTap: () => ctx.onSelect(false),
+    onClick: (e: KonvaEventObject<MouseEvent>) => ctx.onClickSelect?.(e.evt.shiftKey),
     onDragMove: ctx.onDragMove
       ? (e: KonvaEventObject<DragEvent>) => {
           const snapped = ctx.onDragMove!(layer.id, e.target.x(), e.target.y())
@@ -170,7 +177,7 @@ function ImageNode({
   layer: Layer
   common: Record<string, unknown>
 }): JSX.Element | null {
-  const img = useImage(layer.src ? mediaUrl(layer.src) : undefined)
+  const { img, error } = useImageWithStatus(layer.src ? mediaUrl(layer.src) : undefined)
   const ref = useRef<Konva.Image>(null)
   const f = layer.filters ?? {}
   const co = layer.colorOverlay
@@ -201,6 +208,24 @@ function ImageNode({
     layer.crop
   ])
 
+  // Missing/corrupt file: render a visible placeholder instead of vanishing,
+  // so the layer stays selectable and the user can fix or delete it.
+  if (error) {
+    return (
+      <Group {...common}>
+        <Rect
+          width={layer.width}
+          height={layer.height}
+          fill="#2a2a30"
+          stroke="#6b7280"
+          strokeWidth={1}
+          dash={[6, 4]}
+        />
+        <Line points={[0, 0, layer.width, layer.height]} stroke="#6b7280" strokeWidth={1} />
+        <Line points={[layer.width, 0, 0, layer.height]} stroke="#6b7280" strokeWidth={1} />
+      </Group>
+    )
+  }
   if (!img) return null
 
   // Wrap image + optional color overlay in a Group so both share the same
@@ -216,6 +241,7 @@ function ImageNode({
     draggable,
     onMouseDown,
     onTap,
+    onClick,
     onDragMove,
     onDragEnd,
     onTransformEnd
@@ -235,6 +261,7 @@ function ImageNode({
       draggable={draggable as boolean}
       onMouseDown={onMouseDown as () => void}
       onTap={onTap as () => void}
+      onClick={onClick as (() => void) | undefined}
       onDragMove={onDragMove as (() => void) | undefined}
       onDragEnd={onDragEnd as (() => void) | undefined}
       onTransformEnd={onTransformEnd as (() => void) | undefined}

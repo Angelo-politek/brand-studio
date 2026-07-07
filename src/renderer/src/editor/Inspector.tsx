@@ -6,7 +6,7 @@ import { useCurrentBrand } from '@renderer/stores/brandStore'
 import { removeBackground, recolorToPalette } from '@renderer/lib/python'
 import { usePythonStatus } from '@renderer/components/BackendStatus'
 import { toast } from '@renderer/stores/uiStore'
-import { makeImageThumbnail } from '@renderer/lib/thumbnail'
+import { makeImageThumbnail, downscaleImageBytes } from '@renderer/lib/thumbnail'
 import { mediaUrl } from '@shared/ipc'
 import ColorPicker from '@renderer/components/ColorPicker'
 import type { Layer } from '@shared/types'
@@ -148,6 +148,8 @@ export default function Inspector(): JSX.Element | null {
   const brand = useCurrentBrand()
   const aiReady = usePythonStatus().status === 'ready'
   const [bgBusy, setBgBusy] = useState(false)
+  const [bgHuman, setBgHuman] = useState(false)
+  const [bgSoftEdges, setBgSoftEdges] = useState(false)
   const [matchBusy, setMatchBusy] = useState(false)
   const setCropMode = useStore((s) => s.setCropMode)
   // Recolor UI state.
@@ -161,7 +163,6 @@ export default function Inspector(): JSX.Element | null {
     tag: string
   ): Promise<void> {
     if (!layer || !brandId) return
-    const oldSrc = layer.src
     const blob = new Blob([out as BlobPart], { type: 'image/png' })
     const thumb = await makeImageThumbnail(blob)
     const asset = await window.api.assets.import({
@@ -176,20 +177,9 @@ export default function Inspector(): JSX.Element | null {
       tags: [tag]
     })
     updateLayer(layer.id, { src: asset.filePath })
-    // Re-processing replaces a previously GENERATED asset (nobg/brand-match):
-    // delete the superseded one so they don't pile up. Original user uploads
-    // carry no generated tag and are never touched.
-    if (oldSrc) {
-      try {
-        const all = await window.api.assets.list({ brandId })
-        const prev = all.find(
-          (a) => a.filePath === oldSrc && a.tags.some((t) => ['nobg', 'brand-match'].includes(t))
-        )
-        if (prev) await window.api.assets.delete(prev.id)
-      } catch {
-        /* cleanup is best-effort */
-      }
-    }
+    // NOTE: the superseded generated asset is intentionally NOT deleted here —
+    // Ctrl+Z must be able to restore the previous src. Orphaned generated
+    // assets are reclaimed by the "Clean unused" action in the Assets page.
   }
 
   async function matchPalette(): Promise<void> {
@@ -259,7 +249,13 @@ export default function Inspector(): JSX.Element | null {
     setBgBusy(true)
     try {
       const srcBytes = new Uint8Array(await (await fetch(mediaUrl(layer.src))).arrayBuffer())
-      const out = await removeBackground(srcBytes, `${layer.name}.png`)
+      // Huge photos make segmentation slow with no visible quality gain for
+      // social graphics: cap the long side before sending.
+      const capped = await downscaleImageBytes(srcBytes, 2000)
+      const out = await removeBackground(capped, `${layer.name}.png`, {
+        human: bgHuman,
+        softEdges: bgSoftEdges
+      })
       if (!out) {
         toast('Background removal unavailable (processing backend not ready).', 'error')
         return
@@ -705,6 +701,30 @@ export default function Inspector(): JSX.Element | null {
               {bgBusy ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />}
               {bgBusy ? 'Removing…' : 'Remove background'}
             </button>
+            <div className="flex items-center gap-3 px-0.5">
+              <label
+                className="flex items-center gap-1.5 text-[11px] text-ink-faint cursor-pointer"
+                title="Portrait-tuned model — better on people"
+              >
+                <input
+                  type="checkbox"
+                  checked={bgHuman}
+                  onChange={(e) => setBgHuman(e.target.checked)}
+                />
+                Person
+              </label>
+              <label
+                className="flex items-center gap-1.5 text-[11px] text-ink-faint cursor-pointer"
+                title="Alpha matting: better hair/soft edges, slower"
+              >
+                <input
+                  type="checkbox"
+                  checked={bgSoftEdges}
+                  onChange={(e) => setBgSoftEdges(e.target.checked)}
+                />
+                Soft edges
+              </label>
+            </div>
 
             {/* Recolor: map onto brand palette (optional subset) */}
             {(brand?.colors.length ?? 0) > 0 && (

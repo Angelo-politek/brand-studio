@@ -27,15 +27,25 @@ export interface PaletteColor {
   weight: number
 }
 
+export interface RemoveBackgroundOptions {
+  /** Portrait-tuned model instead of the general one. */
+  human?: boolean
+  /** Alpha matting for soft edges (hair, glass) — slower. */
+  softEdges?: boolean
+}
+
 /** Remove the background of an image, returning transparent PNG bytes (or null if offline). */
 export async function removeBackground(
   bytes: Uint8Array,
-  filename: string
+  filename: string,
+  opts: RemoveBackgroundOptions = {}
 ): Promise<Uint8Array | null> {
   const root = await base()
   if (!root) return null
   const form = new FormData()
   form.append('file', new Blob([bytes as BlobPart]), filename)
+  form.append('model', opts.human ? 'u2net_human_seg' : 'isnet-general-use')
+  form.append('alpha_matting', String(opts.softEdges ?? false))
   const res = await fetch(`${root}/bg-remove`, {
     method: 'POST',
     headers: authHeaders(),
@@ -126,7 +136,7 @@ export interface VideoExportParams {
   scenes: ExportScene[]
   /** FPS of the animated overlay frame sequences. */
   overlayFps?: number
-  audio?: { path: string; volume: number; inMs: number } | null
+  audio?: { path: string; volume: number; inMs: number; fadeOutMs?: number } | null
   /** Per-export work dir (cache/video-export/<id>) — cleaned up by the backend. */
   workDir?: string | null
 }

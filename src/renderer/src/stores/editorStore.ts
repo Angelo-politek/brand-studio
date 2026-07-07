@@ -34,6 +34,8 @@ interface EditorState {
   setCanvas: (c: Partial<CanvasSpec>) => void
   addLayer: (layer: Layer) => void
   updateLayer: (id: string, patch: Partial<Layer>) => void
+  /** Patch several layers in ONE set() — one undo step for the whole gesture. */
+  updateLayers: (patches: { id: string; patch: Partial<Layer> }[]) => void
   removeLayer: (id: string) => void
   duplicateLayer: (id: string) => void
   moveLayer: (id: string, dir: 'up' | 'down' | 'top' | 'bottom') => void
@@ -93,6 +95,38 @@ function clone(layers: Layer[], offset = 24): Layer[] {
 }
 
 /**
+ * Axis-aligned bounding box of a layer INCLUDING rotation (and negative
+ * scales/flips): the AABB of the four rotated corners around the node origin.
+ * Alignment/distribution use this so rotated layers line up by what you see.
+ */
+export function layerAabb(l: Layer): { x: number; y: number; w: number; h: number } {
+  const w = l.width * l.scaleX
+  const h = l.height * l.scaleY
+  const rad = ((l.rotation || 0) * Math.PI) / 180
+  const c = Math.cos(rad)
+  const s = Math.sin(rad)
+  const corners: [number, number][] = [
+    [0, 0],
+    [w, 0],
+    [w, h],
+    [0, h]
+  ]
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+  for (const [px, py] of corners) {
+    const x = l.x + px * c - py * s
+    const y = l.y + px * s + py * c
+    if (x < minX) minX = x
+    if (x > maxX) maxX = x
+    if (y < minY) minY = y
+    if (y > maxY) maxY = y
+  }
+  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY }
+}
+
+/**
  * Expand a selection so that picking any member of a group selects the whole
  * group (flat groupId model).
  */
@@ -116,6 +150,27 @@ function syncPages(
 }
 
 const DEFAULT_CANVAS: CanvasSpec = { width: 1080, height: 1080, background: '#ffffff' }
+
+/**
+ * Leading-edge throttle for zundo's history writes: a burst of set() calls
+ * (slider drags, filter tweaks) records ONE entry — the state before the burst
+ * — so a single Ctrl+Z reverts the whole gesture and the 100-entry stack isn't
+ * flooded (which used to evict real edits and make undo look broken).
+ */
+export function coalesceHistory<T>(
+  windowMs: number
+): (fn: (state: T) => void) => (state: T) => void {
+  return (handle) => {
+    let last = 0
+    return (state) => {
+      const now = Date.now()
+      if (now - last > windowMs) {
+        last = now
+        handle(state)
+      }
+    }
+  }
+}
 
 export const useEditorStore = create<EditorState>()(
   temporal(
@@ -183,6 +238,16 @@ export const useEditorStore = create<EditorState>()(
       updateLayer: (id, patch) =>
         set((s) => {
           const layers = s.layers.map((l) => (l.id === id ? { ...l, ...patch } : l))
+          return { layers, pages: syncPages(s.pages, s.activePageId, s.canvas, layers) }
+        }),
+
+      updateLayers: (patches) =>
+        set((s) => {
+          const byId = new Map(patches.map((p) => [p.id, p.patch]))
+          const layers = s.layers.map((l) => {
+            const patch = byId.get(l.id)
+            return patch ? { ...l, ...patch } : l
+          })
           return { layers, pages: syncPages(s.pages, s.activePageId, s.canvas, layers) }
         }),
 
@@ -327,43 +392,36 @@ export const useEditorStore = create<EditorState>()(
           // A single object has nothing to align against within the selection,
           // so default to aligning it to the canvas (matches Canva/Figma).
           ref = ref ?? (sel.length === 1 ? 'canvas' : 'selection')
-          const bbs = sel.map((l) => ({
-            id: l.id,
-            l: l.x,
-            r: l.x + l.width * l.scaleX,
-            t: l.y,
-            b: l.y + l.height * l.scaleY,
-            cx: l.x + (l.width * l.scaleX) / 2,
-            cy: l.y + (l.height * l.scaleY) / 2
-          }))
-          const refL = ref === 'canvas' ? 0 : Math.min(...bbs.map((b) => b.l))
-          const refR = ref === 'canvas' ? s.canvas.width : Math.max(...bbs.map((b) => b.r))
-          const refT = ref === 'canvas' ? 0 : Math.min(...bbs.map((b) => b.t))
-          const refB = ref === 'canvas' ? s.canvas.height : Math.max(...bbs.map((b) => b.b))
+          // Rotation-aware boxes: align what the user SEES, not the unrotated frame.
+          const bbs = new Map(sel.map((l) => [l.id, layerAabb(l)]))
+          const boxes = [...bbs.values()]
+          const refL = ref === 'canvas' ? 0 : Math.min(...boxes.map((b) => b.x))
+          const refR = ref === 'canvas' ? s.canvas.width : Math.max(...boxes.map((b) => b.x + b.w))
+          const refT = ref === 'canvas' ? 0 : Math.min(...boxes.map((b) => b.y))
+          const refB = ref === 'canvas' ? s.canvas.height : Math.max(...boxes.map((b) => b.y + b.h))
           const refCX = (refL + refR) / 2
           const refCY = (refT + refB) / 2
           const layers = s.layers.map((l) => {
             if (!s.selectedIds.includes(l.id)) return l
-            const bb = bbs.find((b) => b.id === l.id)!
-            const w = l.width * l.scaleX
-            const h = l.height * l.scaleY
+            const bb = bbs.get(l.id)!
+            // Move by the delta between the target edge and the AABB edge, so
+            // rotated/flipped layers land exactly on the reference line.
             switch (mode) {
               case 'left':
-                return { ...l, x: refL }
+                return { ...l, x: l.x + (refL - bb.x) }
               case 'right':
-                return { ...l, x: refR - w }
+                return { ...l, x: l.x + (refR - (bb.x + bb.w)) }
               case 'centerX':
-                return { ...l, x: refCX - w / 2 }
+                return { ...l, x: l.x + (refCX - (bb.x + bb.w / 2)) }
               case 'top':
-                return { ...l, y: refT }
+                return { ...l, y: l.y + (refT - bb.y) }
               case 'bottom':
-                return { ...l, y: refB - h }
+                return { ...l, y: l.y + (refB - (bb.y + bb.h)) }
               case 'centerY':
-                return { ...l, y: refCY - h / 2 }
+                return { ...l, y: l.y + (refCY - (bb.y + bb.h / 2)) }
               default:
                 return l
             }
-            void bb
           })
           return { layers, pages: syncPages(s.pages, s.activePageId, s.canvas, layers) }
         }),
@@ -372,28 +430,28 @@ export const useEditorStore = create<EditorState>()(
         set((s) => {
           const sel = s.layers.filter((l) => s.selectedIds.includes(l.id))
           if (sel.length < 3) return {}
-          const sorted = [...sel].sort((a, b) => (axis === 'horizontal' ? a.x - b.x : a.y - b.y))
+          const bbs = new Map(sel.map((l) => [l.id, layerAabb(l)]))
+          const at = (l: Layer): number =>
+            axis === 'horizontal' ? bbs.get(l.id)!.x : bbs.get(l.id)!.y
+          const size = (l: Layer): number =>
+            axis === 'horizontal' ? bbs.get(l.id)!.w : bbs.get(l.id)!.h
+          const sorted = [...sel].sort((a, b) => at(a) - at(b))
           const first = sorted[0]
           const last = sorted[sorted.length - 1]
-          const totalSpan =
-            axis === 'horizontal'
-              ? last.x + last.width * last.scaleX - first.x
-              : last.y + last.height * last.scaleY - first.y
-          const totalSize = sorted.reduce(
-            (sum, l) => sum + (axis === 'horizontal' ? l.width * l.scaleX : l.height * l.scaleY),
-            0
-          )
+          const totalSpan = at(last) + size(last) - at(first)
+          const totalSize = sorted.reduce((sum, l) => sum + size(l), 0)
           const gap = (totalSpan - totalSize) / (sorted.length - 1)
-          let cursor = axis === 'horizontal' ? first.x : first.y
-          const positions = new Map<string, number>()
+          let cursor = at(first)
+          // Target AABB position per layer → applied as a delta on x/y.
+          const deltas = new Map<string, number>()
           for (const l of sorted) {
-            positions.set(l.id, cursor)
-            cursor += (axis === 'horizontal' ? l.width * l.scaleX : l.height * l.scaleY) + gap
+            deltas.set(l.id, cursor - at(l))
+            cursor += size(l) + gap
           }
           const layers = s.layers.map((l) => {
-            const pos = positions.get(l.id)
-            if (pos === undefined) return l
-            return axis === 'horizontal' ? { ...l, x: pos } : { ...l, y: pos }
+            const d = deltas.get(l.id)
+            if (d === undefined) return l
+            return axis === 'horizontal' ? { ...l, x: l.x + d } : { ...l, y: l.y + d }
           })
           return { layers, pages: syncPages(s.pages, s.activePageId, s.canvas, layers) }
         }),
@@ -473,7 +531,8 @@ export const useEditorStore = create<EditorState>()(
         pages: state.pages,
         activePageId: state.activePageId
       }),
-      limit: 100
+      limit: 100,
+      handleSet: coalesceHistory(300)
     }
   )
 )

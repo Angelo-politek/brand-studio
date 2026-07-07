@@ -1,13 +1,15 @@
-import { useCallback, useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
-import { Upload, Search, Loader2 } from 'lucide-react'
+import { Upload, Search, Loader2, Recycle } from 'lucide-react'
 import PageHeader from '@renderer/components/PageHeader'
 import AssetGrid from '@renderer/components/assets/AssetGrid'
 import AssetDetails from '@renderer/components/assets/AssetDetails'
 import { useAssetStore, type FolderFilter } from '@renderer/stores/assetStore'
 import { useCurrentBrand } from '@renderer/stores/brandStore'
 import { pickFiles } from '@renderer/lib/files'
-import { confirmDialog } from '@renderer/stores/uiStore'
+import { collectReferencedSrcs, findOrphanGeneratedAssets } from '@renderer/lib/assetGc'
+import { listUserReelTemplates } from '@renderer/lib/userReelTemplates'
+import { confirmDialog, toast } from '@renderer/stores/uiStore'
 import { cn } from '@renderer/lib/cn'
 import { ASSET_FOLDERS } from '@shared/types'
 
@@ -57,6 +59,44 @@ export default function Assets(): JSX.Element {
     if (paths.length) void importPaths(brandId, paths)
   }
 
+  const [cleaning, setCleaning] = useState(false)
+
+  /**
+   * Delete GENERATED assets (nobg / brand-match) that no project, template or
+   * video references anymore. Generated files are kept at edit time so Ctrl+Z
+   * keeps working — this is the deferred reclaim.
+   */
+  async function cleanUnused(): Promise<void> {
+    if (!brandId) return
+    setCleaning(true)
+    try {
+      const [projects, templates, videos, reelTpls, all] = await Promise.all([
+        window.api.projects.list(brandId),
+        window.api.templates.list(brandId),
+        window.api.video.list(brandId),
+        listUserReelTemplates(),
+        window.api.assets.list({ brandId })
+      ])
+      const referenced = collectReferencedSrcs([projects, templates, videos, reelTpls])
+      const orphans = findOrphanGeneratedAssets(all, referenced)
+      if (orphans.length === 0) {
+        toast('No unused generated assets found.')
+        return
+      }
+      const ok = await confirmDialog(
+        `Delete ${orphans.length} generated asset(s) (background-removed / palette-matched) not used by any project?`
+      )
+      if (!ok) return
+      for (const a of orphans) await window.api.assets.delete(a.id)
+      toast(`Removed ${orphans.length} unused generated asset(s).`, 'success')
+      await refresh(brandId)
+    } catch (e) {
+      toast(`Cleanup failed: ${(e as Error).message}`, 'error')
+    } finally {
+      setCleaning(false)
+    }
+  }
+
   const selected = useMemo(
     () => assets.find((a) => a.id === selectedId) ?? null,
     [assets, selectedId]
@@ -68,9 +108,20 @@ export default function Assets(): JSX.Element {
         title="Assets"
         subtitle="Centralized library — drag files anywhere to import."
         actions={
-          <button onClick={importViaDialog} className="btn-primary text-sm">
-            <Upload size={15} /> Import
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => void cleanUnused()}
+              disabled={cleaning}
+              className="btn-surface text-sm disabled:opacity-50"
+              title="Delete generated assets (bg-removed / palette-matched) not used by any project"
+            >
+              {cleaning ? <Loader2 size={15} className="animate-spin" /> : <Recycle size={15} />}
+              Clean unused
+            </button>
+            <button onClick={importViaDialog} className="btn-primary text-sm">
+              <Upload size={15} /> Import
+            </button>
+          </div>
         }
       />
 

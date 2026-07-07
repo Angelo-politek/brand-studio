@@ -1,40 +1,61 @@
-"""One-click background removal via rembg (u2net / ONNX Runtime).
+"""One-click background removal via rembg (ONNX Runtime).
 
-The model is resolved from U2NET_HOME (set by the Electron sidecar manager to
-backend/models). If absent, rembg downloads it on first use — pre-fetch it
-during venv setup to keep the app fully offline afterwards.
+Default model: isnet-general-use (much better than the legacy u2net on
+products/objects). Optional per-request:
+  - model=u2net_human_seg   → tuned for people/portraits
+  - alpha_matting=true      → soft edges (hair, glass); slower
+
+Models are resolved from U2NET_HOME (set by the Electron sidecar manager to
+backend/models). They must be pre-fetched there — the packaged app is offline.
 """
 
-import io
-
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import Response
 
 router = APIRouter()
 
-# Lazily created so importing this module (and /health) never blocks on the
-# heavy ONNX session or a model download.
-_session = None
+DEFAULT_MODEL = "isnet-general-use"
+ALLOWED_MODELS = {"isnet-general-use", "u2net_human_seg", "u2net"}
+
+# Lazily created and cached per model name, so importing this module (and
+# /health) never blocks on the heavy ONNX session load.
+_sessions: dict = {}
 
 
-def _get_session():
-    global _session
-    if _session is None:
+def _get_session(model: str):
+    if model not in _sessions:
         from rembg import new_session
 
-        _session = new_session("u2net")
-    return _session
+        _sessions[model] = new_session(model)
+    return _sessions[model]
 
 
 @router.post("/bg-remove")
-async def bg_remove(file: UploadFile = File(...)) -> Response:
+async def bg_remove(
+    file: UploadFile = File(...),
+    model: str = Form(DEFAULT_MODEL),
+    alpha_matting: bool = Form(False),
+) -> Response:
     data = await file.read()
     if not data:
         raise HTTPException(status_code=400, detail="empty file")
+    if model not in ALLOWED_MODELS:
+        raise HTTPException(status_code=400, detail=f"unknown model: {model}")
     try:
         from rembg import remove
 
-        out = remove(data, session=_get_session())
+        out = remove(
+            data,
+            session=_get_session(model),
+            # Morphological mask cleanup: fills pinholes and smooths ragged
+            # edges at negligible cost — always on.
+            post_process_mask=True,
+            # Alpha matting (pymatting) refines soft edges; noticeably slower.
+            alpha_matting=alpha_matting,
+            alpha_matting_foreground_threshold=240,
+            alpha_matting_background_threshold=10,
+            alpha_matting_erode_size=10,
+        )
     except Exception as exc:  # noqa: BLE001 - surface a clean error to the client
         raise HTTPException(status_code=500, detail=f"background removal failed: {exc}")
     return Response(content=out, media_type="image/png")

@@ -395,6 +395,8 @@ export interface AudioTrack {
   src: string
   inMs: number
   volume: number
+  /** Fade the music out over the last N ms of the video (0/undefined = off). */
+  fadeOutMs?: number
 }
 
 export interface VideoProject {

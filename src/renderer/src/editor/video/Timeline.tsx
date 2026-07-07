@@ -364,11 +364,44 @@ export default function Timeline({
         {audio ? (
           <>
             <div className="flex-1 h-6 rounded bg-accent/10 border border-accent/40 relative overflow-hidden">
-              <AudioWaveStrip src={audio.src} inMs={audio.inMs} />
-              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-ink-muted truncate max-w-[50%] bg-surface-1/70 px-1 rounded">
+              <AudioWaveStrip
+                src={audio.src}
+                inMs={audio.inMs}
+                onShift={(inMs) => setAudio({ ...audio, inMs })}
+              />
+              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-ink-muted truncate max-w-[50%] bg-surface-1/70 px-1 rounded pointer-events-none">
                 {audio.src.split(/[/\\]/).pop()}
               </span>
             </div>
+            <label
+              className="flex items-center gap-1 text-[10px] text-ink-faint"
+              title="Music start offset (seconds) — or drag the waveform"
+            >
+              start
+              <input
+                type="number"
+                min={0}
+                step={0.1}
+                value={(audio.inMs / 1000).toFixed(1)}
+                onChange={(e) =>
+                  setAudio({ ...audio, inMs: Math.max(0, Number(e.target.value) * 1000) })
+                }
+                className="w-12 bg-surface-2 rounded px-1 text-right text-[10px] outline-none focus:ring-1 focus:ring-accent/40"
+              />
+              s
+            </label>
+            <button
+              onClick={() => setAudio({ ...audio, fadeOutMs: audio.fadeOutMs ? 0 : 1500 })}
+              className={cn(
+                'text-[10px] px-1.5 py-0.5 rounded border',
+                audio.fadeOutMs
+                  ? 'border-accent text-accent'
+                  : 'border-line text-ink-faint hover:text-ink'
+              )}
+              title="Fade the music out over the last 1.5s"
+            >
+              Fade
+            </button>
             <input
               type="range"
               min={0}
@@ -397,21 +430,63 @@ export default function Timeline({
   )
 }
 
-/** Waveform strip for the music lane (decoded once per src, cached). */
-function AudioWaveStrip({ src, inMs }: { src: string; inMs: number }): JSX.Element {
+/**
+ * Waveform strip for the music lane (decoded once per src, cached).
+ * Horizontal drag shifts the track's start offset (inMs).
+ */
+function AudioWaveStrip({
+  src,
+  inMs,
+  onShift
+}: {
+  src: string
+  inMs: number
+  onShift: (inMs: number) => void
+}): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const durRef = useRef(0)
   useEffect(() => {
     let alive = true
     void getWaveform(mediaUrl(src)).then((wf) => {
       const c = canvasRef.current
       if (!alive || !wf || !c) return
+      durRef.current = wf.durationMs
       drawWaveform(c, wf, 'rgba(249, 115, 22, 0.75)', inMs)
     })
     return () => {
       alive = false
     }
   }, [src, inMs])
+
+  function onDragStart(e: React.MouseEvent): void {
+    e.preventDefault()
+    const startX = e.clientX
+    const startIn = inMs
+    const el = canvasRef.current
+    const laneW = el?.clientWidth || 1
+    function onMove(ev: MouseEvent): void {
+      const dur = durRef.current
+      if (!dur) return
+      // Dragging the wave left plays a LATER part of the track (offset grows).
+      const deltaMs = (-(ev.clientX - startX) / laneW) * dur
+      onShift(Math.max(0, Math.min(dur - 500, Math.round(startIn + deltaMs))))
+    }
+    function onUp(): void {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }
+
   return (
-    <canvas ref={canvasRef} width={960} height={24} className="absolute inset-0 w-full h-full" />
+    <canvas
+      ref={canvasRef}
+      width={960}
+      height={24}
+      onMouseDown={onDragStart}
+      className="absolute inset-0 w-full h-full cursor-ew-resize"
+      title="Drag to shift where the music starts"
+    />
   )
 }

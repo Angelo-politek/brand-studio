@@ -235,7 +235,8 @@ export default function EditorTopBar({
     const targetIds = st.selectedIds.length ? st.selectedIds : st.layers.map((l) => l.id)
     const targets = st.layers.filter((l) => targetIds.includes(l.id))
     const updated = applyBrandToLayers(targets, brand)
-    updated.forEach((l) => st.updateLayer(l.id, l))
+    // One batched set() = one undo step for the whole brand application.
+    st.updateLayers(updated.map((l) => ({ id: l.id, patch: l })))
     toast('Brand kit applied.', 'success')
   }
 

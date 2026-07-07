@@ -25,6 +25,7 @@ export interface SharedEditorState {
   setCanvas: (c: Partial<CanvasSpec>) => void
   addLayer: (layer: Layer) => void
   updateLayer: (id: string, patch: Partial<Layer>) => void
+  updateLayers: (patches: { id: string; patch: Partial<Layer> }[]) => void
   removeLayer: (id: string) => void
   duplicateLayer: (id: string) => void
   moveLayer: (id: string, dir: 'up' | 'down' | 'top' | 'bottom') => void

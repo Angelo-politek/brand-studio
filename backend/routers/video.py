@@ -404,6 +404,22 @@ def _xfade_concat(
     ], job=job, span=span, expected_dur=sum(durs))
 
 
+def _effective_total(scenes: list[dict], wants_xfade: bool) -> float:
+    """Final video duration in seconds: sum of scene durations minus the time
+    consumed by xfade overlaps (same clamp math as _xfade_concat)."""
+    durs = [max(0.2, s.get("durationMs", 4000) / 1000.0) for s in scenes]
+    total = sum(durs)
+    if not wants_xfade or len(durs) < 2:
+        return total
+    # Note: _xfade_concat crossfades EVERY boundary once any scene wants a
+    # transition (missing ones default to 'fade'), so mirror that here.
+    for i in range(1, len(durs)):
+        tr = scenes[i].get("transitionIn") or {}
+        tdur = max(0.1, min(float(tr.get("durationMs", 500)) / 1000.0, durs[i] - 0.05, durs[i - 1] - 0.05))
+        total -= tdur
+    return total
+
+
 # ------------------------------- export job --------------------------------
 
 # Progress spans per pipeline stage (renderer rasterization happens before the
@@ -474,13 +490,25 @@ def _export_worker(data: dict, job: _Job) -> None:
         if audio and audio.get("path"):
             avol = float(audio.get("volume", 0.8))
             ain = float(audio.get("inMs", 0)) / 1000.0
+            fade = max(0.0, float(audio.get("fadeOutMs", 0) or 0) / 1000.0)
+            chain = (
+                f"[1:a]volume={avol}[bg];"
+                f"[0:a][bg]amix=inputs=2:duration=first:dropout_transition=0[aout]"
+            )
+            amap = "[aout]"
+            if fade > 0:
+                # Fade against the FINAL video length: transitions consume time,
+                # so mirror the xfade overlap math when computing it.
+                eff_total = _effective_total(scenes, wants_xfade)
+                st = max(0.0, eff_total - fade)
+                chain += f";[aout]afade=t=out:st={st}:d={fade}[afinal]"
+                amap = "[afinal]"
             _run([
                 ffmpeg_path(), "-y",
                 "-i", concat_path,
                 "-ss", str(ain), "-i", audio["path"],
-                "-filter_complex",
-                f"[1:a]volume={avol}[bg];[0:a][bg]amix=inputs=2:duration=first:dropout_transition=0[aout]",
-                "-map", "0:v", "-map", "[aout]",
+                "-filter_complex", chain,
+                "-map", "0:v", "-map", amap,
                 "-c:v", "copy", "-c:a", "aac", "-b:a", "160k",
                 "-movflags", "+faststart",
                 output_path,

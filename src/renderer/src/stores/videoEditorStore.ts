@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { temporal } from 'zundo'
 import { v4 as uuid } from 'uuid'
-import { expandToGroups } from './editorStore'
+import { coalesceHistory, expandToGroups } from './editorStore'
 import type {
   AudioTrack,
   CanvasSpec,
@@ -59,6 +59,7 @@ interface VideoEditorState {
   setCanvas: (c: Partial<CanvasSpec>) => void
   addLayer: (layer: Layer) => void
   updateLayer: (id: string, patch: Partial<Layer>) => void
+  updateLayers: (patches: { id: string; patch: Partial<Layer> }[]) => void
   removeLayer: (id: string) => void
   duplicateLayer: (id: string) => void
   moveLayer: (id: string, dir: 'up' | 'down' | 'top' | 'bottom') => void
@@ -250,6 +251,16 @@ export const useVideoEditorStore = create<VideoEditorState>()(
       updateLayer: (id, patch) =>
         set((s) => {
           const layers = s.layers.map((l) => (l.id === id ? { ...l, ...patch } : l))
+          return { layers, scenes: syncScenes(s.scenes, s.activeSceneId, s.canvas, layers) }
+        }),
+
+      updateLayers: (patches) =>
+        set((s) => {
+          const byId = new Map(patches.map((p) => [p.id, p.patch]))
+          const layers = s.layers.map((l) => {
+            const patch = byId.get(l.id)
+            return patch ? { ...l, ...patch } : l
+          })
           return { layers, scenes: syncScenes(s.scenes, s.activeSceneId, s.canvas, layers) }
         }),
 
@@ -648,7 +659,8 @@ export const useVideoEditorStore = create<VideoEditorState>()(
         layers: state.layers,
         audio: state.audio
       }),
-      limit: 100
+      limit: 100,
+      handleSet: coalesceHistory(300)
     }
   )
 )

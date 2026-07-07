@@ -78,9 +78,16 @@ export async function ensureVenv(backendDir: string): Promise<boolean> {
     return false
   }
 
-  // Best-effort: pre-fetch the background-removal model so it works offline.
-  setStatus('setting-up', 'Download modello (u2net)…')
-  await run(py, ['-c', "from rembg import new_session; new_session('u2net')"], backendDir)
+  // Best-effort: pre-fetch the background-removal models so they work offline.
+  setStatus('setting-up', 'Download modelli (isnet)…')
+  await run(
+    py,
+    [
+      '-c',
+      "from rembg import new_session; new_session('isnet-general-use'); new_session('u2net_human_seg')"
+    ],
+    backendDir
+  )
 
   return venvReady()
 }

@@ -69,7 +69,6 @@ export default function VideoEditor(): JSX.Element {
     playing,
     setName,
     setPlaying,
-    setPlayhead,
     setSceneClip,
     setAudio,
     addScene
@@ -119,6 +118,22 @@ export default function VideoEditor(): JSX.Element {
     const a = musicRef.current
     if (a && audioVolume != null) a.volume = audioVolume
   }, [audioVolume])
+
+  // Follow scrubbing while paused, so pressing Play resumes the music from the
+  // scrubbed position instead of wherever it last stopped. No-op during
+  // playback (the RAF clock advances playheadMs every frame — reseeking there
+  // would stutter; the play/pause effect above handles that case).
+  useEffect(() => {
+    if (playing) return
+    const a = musicRef.current
+    if (!a || !audio) return
+    const idx = Math.max(
+      0,
+      scenes.findIndex((s) => s.id === activeSceneId)
+    )
+    const offset = scenes.slice(0, idx).reduce((sum, s) => sum + s.durationMs, 0) + playheadMs
+    a.currentTime = (audio.inMs + offset) / 1000
+  }, [playing, playheadMs, activeSceneId, scenes, audio])
 
   // Load project once.
   useEffect(() => {
@@ -335,7 +350,8 @@ export default function VideoEditor(): JSX.Element {
         ? {
             path: `${root}/${vp.audio.src.replace(/\\/g, '/')}`,
             volume: vp.audio.volume,
-            inMs: vp.audio.inMs
+            inMs: vp.audio.inMs,
+            fadeOutMs: vp.audio.fadeOutMs ?? 0
           }
         : null
 
@@ -434,12 +450,9 @@ export default function VideoEditor(): JSX.Element {
             onChange={(e) => setName(e.target.value)}
           />
           <button
-            onClick={() => {
-              setPlayhead(0)
-              setPlaying(!playing)
-            }}
+            onClick={() => setPlaying(!playing)}
             className="btn-ghost px-2 py-1.5 ml-2"
-            title={playing ? 'Pause' : 'Play'}
+            title={playing ? 'Pause (resumes from the playhead)' : 'Play'}
           >
             {playing ? <Pause size={16} /> : <Play size={16} />}
           </button>

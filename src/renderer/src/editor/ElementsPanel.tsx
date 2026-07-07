@@ -248,8 +248,24 @@ export default function ElementsPanel(): JSX.Element {
                   <button
                     key={a.id}
                     onClick={() => addImage(a)}
+                    draggable
+                    onDragStart={(e) => {
+                      // Internal drag → dropped on the canvas at the cursor
+                      // (EditorCanvas onDrop). Custom key so OS file drops
+                      // (uploads) are never confused with placements.
+                      e.dataTransfer.setData(
+                        'application/x-brandstudio-asset',
+                        JSON.stringify({
+                          filePath: a.filePath,
+                          width: a.width ?? 800,
+                          height: a.height ?? 800,
+                          name: a.name
+                        })
+                      )
+                      e.dataTransfer.effectAllowed = 'copy'
+                    }}
                     className="aspect-square rounded-md border border-line checkerboard overflow-hidden grid place-items-center p-1 hover:border-accent"
-                    title={`Add ${a.name}`}
+                    title={`Add ${a.name} (click or drag onto the canvas)`}
                   >
                     <img
                       src={mediaUrl(a.thumbPath ?? a.filePath)}

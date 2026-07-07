@@ -10,6 +10,7 @@ import { setStage } from './stageRef'
 import { setFitFn } from './fitRef'
 import ContextMenu from './ContextMenu'
 import CropOverlay from './CropOverlay'
+import { createImageLayer } from './factory'
 import type { Layer as LayerModel } from '@shared/types'
 
 const SNAP_THRESHOLD = 8
@@ -130,6 +131,8 @@ export default function EditorCanvas({
     toggleSelect,
     setSelection,
     updateLayer,
+    updateLayers,
+    addLayer,
     setZoom,
     setPan
   } = useStore()
@@ -149,6 +152,54 @@ export default function EditorCanvas({
     null
   )
   const marqueeStart = useRef<{ x: number; y: number } | null>(null)
+
+  // Space+drag / middle-mouse panning (handled in DOM capture phase so Konva
+  // never starts a node drag or marquee underneath).
+  const [spaceDown, setSpaceDown] = useState(false)
+  useEffect(() => {
+    const isFormTarget = (e: KeyboardEvent): boolean => {
+      const t = e.target as HTMLElement | null
+      return (
+        !!t &&
+        (t.tagName === 'INPUT' ||
+          t.tagName === 'TEXTAREA' ||
+          t.tagName === 'SELECT' ||
+          t.isContentEditable)
+      )
+    }
+    const down = (e: KeyboardEvent): void => {
+      if (e.code === 'Space' && !isFormTarget(e)) {
+        setSpaceDown(true)
+        e.preventDefault() // stop page scroll / button activation
+      }
+    }
+    const up = (e: KeyboardEvent): void => {
+      if (e.code === 'Space') setSpaceDown(false)
+    }
+    window.addEventListener('keydown', down)
+    window.addEventListener('keyup', up)
+    return () => {
+      window.removeEventListener('keydown', down)
+      window.removeEventListener('keyup', up)
+    }
+  }, [])
+
+  function onPanStart(e: React.MouseEvent): void {
+    const wantsPan = e.button === 1 || (spaceDown && e.button === 0)
+    if (!wantsPan) return
+    e.preventDefault()
+    e.stopPropagation()
+    const start = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y }
+    const onMove = (ev: MouseEvent): void => {
+      setPan({ x: start.px + (ev.clientX - start.x), y: start.py + (ev.clientY - start.y) })
+    }
+    const onUp = (): void => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }
 
   const handleDragMove = useCallback(
     (id: string, x: number, y: number): { x: number; y: number } | null => {
@@ -331,7 +382,9 @@ export default function EditorCanvas({
     e.evt.preventDefault()
     const id = e.target.id()
     if (!id || !layers.find((l) => l.id === id)) return
-    select(id)
+    // Right-clicking a member of a multi-selection keeps it intact, so
+    // menu actions (align, group…) still apply to the whole selection.
+    if (!selectedIds.includes(id)) select(id)
     setContextMenu({ layerId: id, x: e.evt.clientX, y: e.evt.clientY })
   }
 
@@ -389,8 +442,46 @@ export default function EditorCanvas({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedIds, layers])
 
+  /** Drop an asset dragged from the Elements/Assets panel at the cursor. */
+  function onAssetDrop(e: React.DragEvent): void {
+    const raw = e.dataTransfer.getData('application/x-brandstudio-asset')
+    if (!raw) return // OS file drops etc. are not placements
+    e.preventDefault()
+    try {
+      const asset = JSON.parse(raw) as {
+        filePath: string
+        width: number
+        height: number
+        name: string
+      }
+      const rect = containerRef.current?.getBoundingClientRect()
+      if (!rect) return
+      // Screen → canvas coords (inverse of the stage pan/zoom transform).
+      const cx = (e.clientX - rect.left - pan.x) / zoom
+      const cy = (e.clientY - rect.top - pan.y) / zoom
+      const layer = createImageLayer(canvas, asset.filePath, asset.width, asset.height, asset.name)
+      // Center the image on the drop point.
+      layer.x = cx - layer.width / 2
+      layer.y = cy - layer.height / 2
+      addLayer(layer)
+    } catch {
+      /* malformed payload — ignore */
+    }
+  }
+
   return (
-    <div ref={containerRef} className="relative h-full w-full overflow-hidden bg-surface-0">
+    <div
+      ref={containerRef}
+      className={`relative h-full w-full overflow-hidden bg-surface-0 ${spaceDown ? 'cursor-grab' : ''}`}
+      onMouseDownCapture={onPanStart}
+      onDragOver={(e) => {
+        if (e.dataTransfer.types.includes('application/x-brandstudio-asset')) {
+          e.preventDefault()
+          e.dataTransfer.dropEffect = 'copy'
+        }
+      }}
+      onDrop={onAssetDrop}
+    >
       <Rulers width={canvas.width} height={canvas.height} zoom={zoom} pan={pan} />
 
       {/* Optional DOM backdrop (e.g. a <video> clip) placed behind the Konva
@@ -473,11 +564,31 @@ export default function EditorCanvas({
                   }
                   ctx={{
                     isSelected: selectedIds.includes(rawLayer.id),
-                    onSelect: (additive) =>
-                      additive ? toggleSelect(rawLayer.id) : select(rawLayer.id),
+                    onSelect: (additive) => {
+                      if (additive) {
+                        toggleSelect(rawLayer.id)
+                        return
+                      }
+                      // Never collapse an existing selection on mousedown —
+                      // the user may be starting a drag of the whole
+                      // multi-selection. Collapse happens in onClickSelect.
+                      if (!selectedIds.includes(rawLayer.id)) select(rawLayer.id)
+                    },
+                    onClickSelect: (additive) => {
+                      // Click WITHOUT drag on a member of a multi-selection
+                      // collapses to just that layer (Canva/Figma behavior).
+                      if (
+                        !additive &&
+                        selectedIds.length > 1 &&
+                        selectedIds.includes(rawLayer.id)
+                      ) {
+                        select(rawLayer.id)
+                      }
+                    },
                     onChange: (patch) => {
                       // Dragging one member of a multi-selection (e.g. a group)
-                      // moves the others by the same delta.
+                      // moves the others by the same delta — batched into a
+                      // single set() so one drag = one undo step.
                       const px = patch.x
                       const py = patch.y
                       const isPureMove =
@@ -491,14 +602,18 @@ export default function EditorCanvas({
                       ) {
                         const dx = (px as number) - rawLayer.x
                         const dy = (py as number) - rawLayer.y
-                        updateLayer(rawLayer.id, patch)
+                        const patches = [{ id: rawLayer.id, patch }]
                         if (dx !== 0 || dy !== 0) {
                           for (const other of layers) {
                             if (other.id !== rawLayer.id && selectedIds.includes(other.id)) {
-                              updateLayer(other.id, { x: other.x + dx, y: other.y + dy })
+                              patches.push({
+                                id: other.id,
+                                patch: { x: other.x + dx, y: other.y + dy }
+                              })
                             }
                           }
                         }
+                        updateLayers(patches)
                         return
                       }
                       updateLayer(rawLayer.id, patch)

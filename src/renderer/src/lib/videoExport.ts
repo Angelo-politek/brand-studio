@@ -2,6 +2,7 @@ import Konva from 'konva'
 import { mediaUrl } from '@shared/ipc'
 import { animateLayer } from './videoAnim'
 import { buildPanelPrimitives } from './panelShapes'
+import { dataUrlToBytes } from './bytes'
 import type { Layer, VideoScene } from '@shared/types'
 
 /** Load an image element (CORS-safe) for export rendering. */
@@ -212,9 +213,8 @@ export async function renderSceneOverlayPng(
   try {
     for (const l of visible) await addLayerNode(layer, l)
     layer.draw()
-    const dataUrl = stage.toDataURL({ pixelRatio: 1, mimeType: 'image/png' })
-    const res = await fetch(dataUrl)
-    return new Uint8Array(await res.arrayBuffer())
+    // Decode directly: fetch(dataUrl) is blocked by the CSP connect-src.
+    return dataUrlToBytes(stage.toDataURL({ pixelRatio: 1, mimeType: 'image/png' }))
   } finally {
     stage.destroy()
     container.remove()
@@ -272,9 +272,8 @@ export async function renderSceneOverlayFrames(
         await addLayerNode(layer, animateLayer(l, tMs, scene.durationMs), imageCache)
       }
       layer.draw()
-      const dataUrl = stage.toDataURL({ pixelRatio: 1, mimeType: 'image/png' })
-      const res = await fetch(dataUrl)
-      const bytes = new Uint8Array(await res.arrayBuffer())
+      // Decode directly: fetch(dataUrl) is blocked by the CSP connect-src.
+      const bytes = dataUrlToBytes(stage.toDataURL({ pixelRatio: 1, mimeType: 'image/png' }))
       if (onFrame) await onFrame(bytes, i)
       else frames.push(bytes)
     }

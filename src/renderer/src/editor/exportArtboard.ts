@@ -1,16 +1,9 @@
 import { PDFDocument } from 'pdf-lib'
 import type Konva from 'konva'
+import { dataUrlToBytes } from '@renderer/lib/bytes'
 import type { CanvasSpec, ExportRecord } from '@shared/types'
 
 export type ExportFmt = 'png' | 'jpg' | 'webp' | 'pdf'
-
-function dataUrlToBytes(dataUrl: string): Uint8Array {
-  const base64 = dataUrl.split(',')[1]
-  const bin = atob(base64)
-  const bytes = new Uint8Array(bin.length)
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
-  return bytes
-}
 
 export function sanitize(name: string): string {
   return name.replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 60) || 'export'

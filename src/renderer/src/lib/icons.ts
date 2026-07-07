@@ -7,8 +7,11 @@ import iconTags from 'lucide-static/tags.json'
  * substituting `currentColor`, and rasterized to an HTMLImageElement for Konva.
  */
 
-// All icon files, loaded on demand (returns the raw SVG string).
-const svgModules = import.meta.glob('/node_modules/lucide-static/icons/*.svg', {
+// All icon files, loaded on demand (returns the raw SVG string). The glob is
+// RELATIVE to this file so it resolves from the package's node_modules in both
+// dev (Vite root = src/renderer) and the production build.
+// src/renderer/src/lib → ../../../../node_modules
+const svgModules = import.meta.glob('../../../../node_modules/lucide-static/icons/*.svg', {
   query: '?raw',
   import: 'default'
 }) as Record<string, () => Promise<string>>

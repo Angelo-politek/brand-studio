@@ -209,6 +209,21 @@ export interface Layer {
     blendMode: 'multiply' | 'overlay' | 'color'
   } | null
 
+  /** Two-stop gradient fill (overrides `fill` on shapes/text when present). */
+  gradient?: {
+    type: 'linear' | 'radial'
+    from: string
+    to: string
+    /** Linear direction in degrees (0 = left→right). Ignored for radial. */
+    angle?: number
+  } | null
+
+  /** Compositing mode against the layers below (default 'source-over'). */
+  blendMode?: BlendMode
+
+  /** Non-rectangular clip for images. */
+  mask?: 'none' | 'circle'
+
   /** Enter/exit animation (used by the video editor; ignored by design editor). */
   anim?: LayerAnimation
 
@@ -218,6 +233,18 @@ export interface Layer {
     params: PanelComponentParams
   }
 }
+
+/** Konva globalCompositeOperation subset exposed as per-layer blend modes. */
+export type BlendMode =
+  | 'normal'
+  | 'multiply'
+  | 'screen'
+  | 'overlay'
+  | 'darken'
+  | 'lighten'
+  | 'color-dodge'
+  | 'color-burn'
+  | 'difference'
 
 export type LayerAnimationIn =
   | 'none'

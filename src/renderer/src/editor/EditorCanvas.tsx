@@ -26,7 +26,8 @@ function computeSnap(
   ny: number,
   draggingLayer: LayerModel,
   allLayers: LayerModel[],
-  canvas: { width: number; height: number }
+  canvas: { width: number; height: number },
+  userGuides: { x: number[]; y: number[] } = { x: [], y: [] }
 ): { x: number; y: number; guides: Guide[] } {
   const dw = draggingLayer.width * draggingLayer.scaleX
   const dh = draggingLayer.height * draggingLayer.scaleY
@@ -41,9 +42,9 @@ function computeSnap(
   const dCY = ny + dh / 2
   const dBottom = ny + dh
 
-  // Collect target snap lines from canvas + other layers
-  const xTargets: number[] = [0, canvas.width / 2, canvas.width]
-  const yTargets: number[] = [0, canvas.height / 2, canvas.height]
+  // Collect target snap lines from canvas + user guides + other layers
+  const xTargets: number[] = [0, canvas.width / 2, canvas.width, ...userGuides.x]
+  const yTargets: number[] = [0, canvas.height / 2, canvas.height, ...userGuides.y]
 
   for (const l of allLayers) {
     if (l.id === draggingId) continue
@@ -134,7 +135,11 @@ export default function EditorCanvas({
     updateLayers,
     addLayer,
     setZoom,
-    setPan
+    setPan,
+    lockAspect = false,
+    guides = { x: [], y: [] },
+    addGuide,
+    removeGuide
   } = useStore()
 
   const containerRef = useRef<HTMLDivElement>(null)
@@ -205,11 +210,11 @@ export default function EditorCanvas({
     (id: string, x: number, y: number): { x: number; y: number } | null => {
       const draggingLayer = layers.find((l) => l.id === id)
       if (!draggingLayer) return null
-      const result = computeSnap(id, x, y, draggingLayer, layers, canvas)
+      const result = computeSnap(id, x, y, draggingLayer, layers, canvas, guides)
       setSnapGuides(result.guides)
       return { x: result.x, y: result.y }
     },
-    [layers, canvas]
+    [layers, canvas, guides]
   )
 
   const handleDragEnd = useCallback(() => setSnapGuides([]), [])
@@ -482,7 +487,14 @@ export default function EditorCanvas({
       }}
       onDrop={onAssetDrop}
     >
-      <Rulers width={canvas.width} height={canvas.height} zoom={zoom} pan={pan} />
+      <Rulers
+        width={canvas.width}
+        height={canvas.height}
+        zoom={zoom}
+        pan={pan}
+        containerRef={containerRef}
+        onCreateGuide={addGuide}
+      />
 
       {/* Optional DOM backdrop (e.g. a <video> clip) placed behind the Konva
           stage, transformed to match the artboard's zoom/pan. */}
@@ -630,6 +642,30 @@ export default function EditorCanvas({
 
           {cropLayer && <CropOverlay key={`crop-${cropLayer.id}`} layer={cropLayer} />}
 
+          {/* User guides (cyan, persistent). Double-click removes one. */}
+          {guides.x.map((gx, i) => (
+            <Line
+              key={`ug-x${i}`}
+              points={[gx, 0, gx, canvas.height]}
+              stroke="#22d3ee"
+              strokeWidth={1}
+              hitStrokeWidth={8}
+              opacity={0.9}
+              onDblClick={() => removeGuide?.('x', i)}
+            />
+          ))}
+          {guides.y.map((gy, i) => (
+            <Line
+              key={`ug-y${i}`}
+              points={[0, gy, canvas.width, gy]}
+              stroke="#22d3ee"
+              strokeWidth={1}
+              hitStrokeWidth={8}
+              opacity={0.9}
+              onDblClick={() => removeGuide?.('y', i)}
+            />
+          ))}
+
           {/* Snap guide lines */}
           {snapGuides.map((g, i) =>
             g.type === 'x' ? (
@@ -685,7 +721,7 @@ export default function EditorCanvas({
           <Transformer
             ref={trRef}
             rotateEnabled
-            keepRatio={false}
+            keepRatio={lockAspect}
             enabledAnchors={transformerAnchors}
             anchorStroke="#f97316"
             anchorFill="#0b0d12"

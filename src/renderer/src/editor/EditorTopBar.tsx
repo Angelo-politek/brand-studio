@@ -8,6 +8,9 @@ import {
   Redo2,
   Grid3x3,
   SquareDashed,
+  Lock,
+  LockOpen,
+  Ruler,
   Download,
   Check,
   LayoutTemplate,
@@ -58,23 +61,27 @@ function SelectionInfo({
   const x = layer ? Math.round(layer.x) : Math.round(Math.min(...sel.map((l) => l.x)))
   const y = layer ? Math.round(layer.y) : Math.round(Math.min(...sel.map((l) => l.y)))
   const w = layer
-    ? Math.round(layer.width * layer.scaleX)
+    ? Math.round(layer.width * Math.abs(layer.scaleX))
     : Math.round(
-        Math.max(...sel.map((l) => l.x + l.width * l.scaleX)) - Math.min(...sel.map((l) => l.x))
+        Math.max(...sel.map((l) => l.x + l.width * Math.abs(l.scaleX))) -
+          Math.min(...sel.map((l) => l.x))
       )
   const h = layer
-    ? Math.round(layer.height * layer.scaleY)
+    ? Math.round(layer.height * Math.abs(layer.scaleY))
     : Math.round(
-        Math.max(...sel.map((l) => l.y + l.height * l.scaleY)) - Math.min(...sel.map((l) => l.y))
+        Math.max(...sel.map((l) => l.y + l.height * Math.abs(l.scaleY))) -
+          Math.min(...sel.map((l) => l.y))
       )
 
   function handle(field: string, val: number): void {
     if (!layer) return
+    // Write real width/height (not scale, which resolveTransform resets).
+    const sx = Math.abs(layer.scaleX) || 1
+    const sy = Math.abs(layer.scaleY) || 1
     if (field === 'x') updateLayer(layer.id, { x: val })
     else if (field === 'y') updateLayer(layer.id, { y: val })
-    else if (field === 'w' && layer.width > 0) updateLayer(layer.id, { scaleX: val / layer.width })
-    else if (field === 'h' && layer.height > 0)
-      updateLayer(layer.id, { scaleY: val / layer.height })
+    else if (field === 'w' && val > 0) updateLayer(layer.id, { width: val / sx })
+    else if (field === 'h' && val > 0) updateLayer(layer.id, { height: val / sy })
   }
 
   return (
@@ -185,6 +192,10 @@ export default function EditorTopBar({
     showSafe,
     toggleGrid,
     toggleSafe,
+    lockAspect,
+    toggleLockAspect,
+    guides,
+    clearGuides,
     selectedIds,
     layers,
     updateLayer,
@@ -286,6 +297,18 @@ export default function EditorTopBar({
         >
           <SquareDashed size={16} />
         </button>
+        <button
+          onClick={toggleLockAspect}
+          className={cn('btn-ghost px-2 py-1.5', lockAspect && 'text-accent')}
+          title="Lock aspect ratio when resizing"
+        >
+          {lockAspect ? <Lock size={16} /> : <LockOpen size={16} />}
+        </button>
+        {(guides.x.length > 0 || guides.y.length > 0) && (
+          <button onClick={clearGuides} className="btn-ghost px-2 py-1.5" title="Clear all guides">
+            <Ruler size={16} />
+          </button>
+        )}
       </div>
 
       {/* Alignment toolbar — visible when ≥1 layer selected */}

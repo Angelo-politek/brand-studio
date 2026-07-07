@@ -1,12 +1,43 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Plus, Copy, Trash2 } from 'lucide-react'
 import { useEditorStore } from '@renderer/stores/editorStore'
+import { generatePageThumbnail, getCachedPageThumbnail } from '@renderer/lib/pageThumbnail'
 import { cn } from '@renderer/lib/cn'
+import type { Page } from '@shared/types'
+
+/** Real rendered mini-preview of a page (cached, regenerates on edits). */
+function PageThumb({ page, bg }: { page: Page; bg: string }): JSX.Element {
+  const [url, setUrl] = useState<string | null>(() => getCachedPageThumbnail(page))
+  useEffect(() => {
+    let alive = true
+    void generatePageThumbnail(page).then((u) => {
+      if (alive) setUrl(u)
+    })
+    return () => {
+      alive = false
+    }
+    // Regenerate when the page content changes (layer count / structure).
+  }, [page])
+  return url ? (
+    <img src={url} alt="" className="w-full h-full object-contain" style={{ background: bg }} />
+  ) : (
+    <div className="w-full h-full" style={{ background: bg }} />
+  )
+}
 
 export default function PagesPanel(): JSX.Element {
-  const { pages, activePageId, setActivePage, addPage, deletePage, duplicatePage, renamePage } =
-    useEditorStore()
+  const {
+    pages,
+    activePageId,
+    setActivePage,
+    addPage,
+    deletePage,
+    duplicatePage,
+    renamePage,
+    reorderPage
+  } = useEditorStore()
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [dragOverId, setDragOverId] = useState<string | null>(null)
 
   return (
     <div className="h-20 shrink-0 border-t border-line bg-surface-1 flex items-center gap-2 px-3 overflow-x-auto">
@@ -17,19 +48,27 @@ export default function PagesPanel(): JSX.Element {
           <div key={page.id} className="flex flex-col items-center gap-1 shrink-0">
             <div
               onClick={() => setActivePage(page.id)}
+              draggable
+              onDragStart={(e) => e.dataTransfer.setData('text/page-id', page.id)}
+              onDragOver={(e) => {
+                e.preventDefault()
+                setDragOverId(page.id)
+              }}
+              onDragLeave={() => setDragOverId((cur) => (cur === page.id ? null : cur))}
+              onDrop={(e) => {
+                e.preventDefault()
+                setDragOverId(null)
+                const draggedId = e.dataTransfer.getData('text/page-id')
+                if (draggedId && draggedId !== page.id) reorderPage(draggedId, i)
+              }}
               className={cn(
                 'group relative w-14 h-10 rounded border-2 cursor-pointer transition-colors overflow-hidden',
-                isActive ? 'border-accent shadow-sm' : 'border-line hover:border-accent/50'
+                isActive ? 'border-accent shadow-sm' : 'border-line hover:border-accent/50',
+                dragOverId === page.id && 'ring-2 ring-accent/70'
               )}
-              style={{ background: bg }}
               title={page.name}
             >
-              {/* Mini layer count badge */}
-              {page.layers.length > 0 && (
-                <span className="absolute bottom-0.5 right-0.5 text-[9px] leading-none bg-black/50 text-white rounded px-0.5">
-                  {page.layers.length}
-                </span>
-              )}
+              <PageThumb page={page} bg={bg} />
               {/* Context actions on hover */}
               <div className="absolute top-0 right-0 hidden group-hover:flex gap-0.5 bg-black/50 rounded-bl p-0.5">
                 <button

@@ -14,8 +14,16 @@ import type { KonvaEventObject, Filter } from 'konva/lib/Node'
 import { mediaUrl } from '@shared/ipc'
 import { useImageWithStatus } from '@renderer/lib/useImage'
 import { Temperature } from '@renderer/lib/konvaFilters'
+import { gradientToKonvaProps, offsetGradient } from '@renderer/lib/gradients'
 import PanelComponentNode from './panel/PanelComponentNode'
-import type { Layer } from '@shared/types'
+import type { BlendMode, Layer } from '@shared/types'
+
+/** Konva globalCompositeOperation for a blend mode ('normal' → default). */
+export function blendToComposite(
+  mode: BlendMode | undefined
+): GlobalCompositeOperation | undefined {
+  return !mode || mode === 'normal' ? undefined : (mode as GlobalCompositeOperation)
+}
 
 interface NodeCtx {
   isSelected: boolean
@@ -45,6 +53,7 @@ function useCommon(layer: Layer, ctx: NodeCtx): Record<string, unknown> {
     scaleY: layer.scaleY,
     opacity: layer.opacity,
     visible: layer.visible,
+    globalCompositeOperation: blendToComposite(layer.blendMode),
     draggable: !layer.locked,
     onMouseDown: (e: KonvaEventObject<MouseEvent>) => ctx.onSelect(e.evt.shiftKey),
     onTap: () => ctx.onSelect(false),
@@ -255,6 +264,29 @@ function ImageNode({
     onTransformEnd
   } = common as Record<string, unknown>
 
+  const radius = layer.cornerRadius ?? 0
+  const mask = layer.mask ?? 'none'
+  const iw = layer.width
+  const ih = layer.height
+  // Clip the image content (and tint) to a rounded rect or circle when asked.
+  const clipFunc =
+    mask === 'circle' || radius > 0
+      ? (ctxc: Konva.Context): void => {
+          ctxc.beginPath()
+          if (mask === 'circle') {
+            ctxc.ellipse(iw / 2, ih / 2, iw / 2, ih / 2, 0, 0, Math.PI * 2)
+          } else {
+            const rr = Math.min(radius, iw / 2, ih / 2)
+            ctxc.moveTo(rr, 0)
+            ctxc.arcTo(iw, 0, iw, ih, rr)
+            ctxc.arcTo(iw, ih, 0, ih, rr)
+            ctxc.arcTo(0, ih, 0, 0, rr)
+            ctxc.arcTo(0, 0, iw, 0, rr)
+          }
+          ctxc.closePath()
+        }
+      : undefined
+
   return (
     <Group
       id={layer.id}
@@ -266,6 +298,9 @@ function ImageNode({
       scaleY={scaleY as number}
       opacity={opacity as number}
       visible={visible as boolean}
+      globalCompositeOperation={
+        (common as { globalCompositeOperation?: GlobalCompositeOperation }).globalCompositeOperation
+      }
       draggable={draggable as boolean}
       onMouseDown={onMouseDown as () => void}
       onTap={onTap as () => void}
@@ -274,34 +309,55 @@ function ImageNode({
       onDragEnd={onDragEnd as (() => void) | undefined}
       onTransformEnd={onTransformEnd as (() => void) | undefined}
     >
-      <KonvaImage
-        ref={ref}
-        image={img}
-        width={layer.width}
-        height={layer.height}
-        crop={layer.crop ?? undefined}
-        filters={filters}
-        brightness={f.brightness ?? 0}
-        contrast={f.contrast ?? 0}
-        blurRadius={f.blur ?? 0}
-        saturation={f.saturation ?? 0}
-        hue={f.hue ?? 0}
-        temperature={f.temperature ?? 0}
-        shadowColor={layer.shadowColor}
-        shadowBlur={layer.shadowBlur ?? 0}
-        shadowOffsetX={layer.shadowOffsetX ?? 0}
-        shadowOffsetY={layer.shadowOffsetY ?? 0}
-      />
-      {co && co.opacity > 0 && (
-        <Rect
+      {/* Clipped content: the image + optional tint share the mask/radius. */}
+      <Group clipFunc={clipFunc}>
+        <KonvaImage
+          ref={ref}
+          image={img}
           width={layer.width}
           height={layer.height}
-          fill={co.hex}
-          opacity={co.opacity}
-          globalCompositeOperation={co.blendMode === 'color' ? 'color' : co.blendMode}
-          listening={false}
+          crop={layer.crop ?? undefined}
+          filters={filters}
+          brightness={f.brightness ?? 0}
+          contrast={f.contrast ?? 0}
+          blurRadius={f.blur ?? 0}
+          saturation={f.saturation ?? 0}
+          hue={f.hue ?? 0}
+          temperature={f.temperature ?? 0}
         />
-      )}
+        {co && co.opacity > 0 && (
+          <Rect
+            width={layer.width}
+            height={layer.height}
+            fill={co.hex}
+            opacity={co.opacity}
+            globalCompositeOperation={co.blendMode === 'color' ? 'color' : co.blendMode}
+            listening={false}
+          />
+        )}
+      </Group>
+      {/* Border follows the same rounded/circular outline as the clip. */}
+      {(layer.strokeWidth ?? 0) > 0 &&
+        (mask === 'circle' ? (
+          <Ellipse
+            x={iw / 2}
+            y={ih / 2}
+            radiusX={iw / 2}
+            radiusY={ih / 2}
+            stroke={layer.strokeColor}
+            strokeWidth={layer.strokeWidth}
+            listening={false}
+          />
+        ) : (
+          <Rect
+            width={iw}
+            height={ih}
+            cornerRadius={radius}
+            stroke={layer.strokeColor}
+            strokeWidth={layer.strokeWidth}
+            listening={false}
+          />
+        ))}
     </Group>
   )
 }
@@ -316,18 +372,27 @@ export default function LayerNode({
   const common = useCommon(layer, ctx)
   const w = layer.width
   const h = layer.height
+  // Gradient fill (overrides flat `fill`); null → keep the solid fill prop.
+  const grad = gradientToKonvaProps(layer.gradient, w, h)
+  // Centered variant for ellipse/polygon whose origin is at (w/2, h/2).
+  const gradCentered = grad
+    ? offsetGradient(gradientToKonvaProps(layer.gradient, w, h)!, -w / 2, -h / 2)
+    : null
+  const fillProps = grad ? grad : { fill: layer.fill }
+  const fillPropsCentered = gradCentered ? gradCentered : { fill: layer.fill }
 
   switch (layer.type) {
     case 'text':
       return (
         <Text
           {...common}
+          {...(grad ?? {})}
           text={layer.text ?? ''}
           width={layer.width}
           fontFamily={layer.fontFamily ?? 'Inter'}
           fontSize={layer.fontSize ?? 48}
           fontStyle={layer.fontStyle ?? 'normal'}
-          fill={layer.fill ?? '#ffffff'}
+          fill={grad ? undefined : (layer.fill ?? '#ffffff')}
           align={layer.align ?? 'left'}
           letterSpacing={layer.letterSpacing ?? 0}
           lineHeight={layer.lineHeight ?? 1.2}
@@ -343,9 +408,9 @@ export default function LayerNode({
       return (
         <Rect
           {...common}
+          {...fillProps}
           width={w}
           height={h}
-          fill={layer.fill}
           cornerRadius={layer.cornerRadius ?? 0}
           stroke={layer.strokeWidth ? layer.strokeColor : undefined}
           strokeWidth={layer.strokeWidth ?? 0}
@@ -365,7 +430,7 @@ export default function LayerNode({
             y={h / 2}
             radiusX={w / 2}
             radiusY={h / 2}
-            fill={layer.fill}
+            {...fillPropsCentered}
             stroke={layer.strokeWidth ? layer.strokeColor : undefined}
             strokeWidth={layer.strokeWidth ?? 0}
             shadowColor={layer.shadowColor}
@@ -387,7 +452,7 @@ export default function LayerNode({
             radius={r}
             scaleX={w / (2 * r)}
             scaleY={h / (2 * r)}
-            fill={layer.fill}
+            {...(gradCentered ?? { fill: layer.fill })}
             stroke={layer.strokeWidth ? layer.strokeColor : undefined}
             strokeWidth={layer.strokeWidth ?? 0}
             strokeScaleEnabled={false}
@@ -410,7 +475,7 @@ export default function LayerNode({
             radius={r}
             scaleX={w / (2 * r)}
             scaleY={h / (2 * r)}
-            fill={layer.fill}
+            {...(gradCentered ?? { fill: layer.fill })}
             stroke={layer.strokeWidth ? layer.strokeColor : undefined}
             strokeWidth={layer.strokeWidth ?? 0}
             strokeScaleEnabled={false}

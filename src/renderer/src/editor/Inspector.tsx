@@ -510,9 +510,7 @@ export default function Inspector(): JSX.Element | null {
                 <option value="bold italic">Bold Italic</option>
               </select>
             </Row>
-            <Row label="Color">
-              <ColorField value={layer.fill} onChange={(v) => set({ fill: v })} />
-            </Row>
+            <FillSection layer={layer} set={set} label="Color" />
             <Row label="Align">
               <div className="flex gap-1">
                 {(
@@ -555,9 +553,7 @@ export default function Inspector(): JSX.Element | null {
           layer.type === 'triangle' ||
           layer.type === 'polygon') && (
           <>
-            <Row label="Fill">
-              <ColorField value={layer.fill} onChange={(v) => set({ fill: v })} />
-            </Row>
+            <FillSection layer={layer} set={set} />
             {layer.type === 'rect' && (
               <Row label="Radius">
                 <Num
@@ -687,6 +683,32 @@ export default function Inspector(): JSX.Element | null {
                   set({ filters: { ...layer.filters, grayscale: e.target.checked } })
                 }
               />
+            </Row>
+            {/* Shape / border */}
+            <Row label="Mask">
+              <select
+                className="input text-xs"
+                value={layer.mask ?? 'none'}
+                onChange={(e) => set({ mask: e.target.value as NonNullable<Layer['mask']> })}
+              >
+                <option value="none">None</option>
+                <option value="circle">Circle</option>
+              </select>
+            </Row>
+            {(layer.mask ?? 'none') === 'none' && (
+              <Row label="Radius">
+                <Num
+                  value={layer.cornerRadius}
+                  min={0}
+                  onChange={(v) => set({ cornerRadius: v })}
+                />
+              </Row>
+            )}
+            <Row label="Border">
+              <ColorField value={layer.strokeColor} onChange={(v) => set({ strokeColor: v })} />
+            </Row>
+            <Row label="Border W">
+              <Num value={layer.strokeWidth} min={0} onChange={(v) => set({ strokeWidth: v })} />
             </Row>
             <div>
               <div className="text-[11px] text-ink-faint mb-1">Crop</div>
@@ -882,7 +904,23 @@ export default function Inspector(): JSX.Element | null {
           </div>
         )}
 
-        {/* Common */}
+        {/* Common: position & size */}
+        <Row label="X / Y">
+          <Num value={Math.round(layer.x)} onChange={(v) => set({ x: v })} />
+          <Num value={Math.round(layer.y)} onChange={(v) => set({ y: v })} />
+        </Row>
+        <Row label="W / H">
+          <Num
+            value={Math.round(layer.width * Math.abs(layer.scaleX))}
+            min={1}
+            onChange={(v) => set({ width: v / Math.abs(layer.scaleX || 1) })}
+          />
+          <Num
+            value={Math.round(layer.height * Math.abs(layer.scaleY))}
+            min={1}
+            onChange={(v) => set({ height: v / Math.abs(layer.scaleY || 1) })}
+          />
+        </Row>
         <Row label="Rotate">
           <Num
             value={Math.round(layer.rotation)}
@@ -932,10 +970,114 @@ export default function Inspector(): JSX.Element | null {
             className="w-full"
           />
         </Row>
+        {layer.type !== 'panelComponent' && (
+          <Row label="Blend">
+            <select
+              className="input text-xs"
+              value={layer.blendMode ?? 'normal'}
+              onChange={(e) =>
+                set({ blendMode: e.target.value as NonNullable<Layer['blendMode']> })
+              }
+            >
+              <option value="normal">Normal</option>
+              <option value="multiply">Multiply</option>
+              <option value="screen">Screen</option>
+              <option value="overlay">Overlay</option>
+              <option value="darken">Darken</option>
+              <option value="lighten">Lighten</option>
+              <option value="color-dodge">Color dodge</option>
+              <option value="color-burn">Color burn</option>
+              <option value="difference">Difference</option>
+            </select>
+          </Row>
+        )}
 
         {/* Animation (video editor only, any layer type) */}
         {isVideo && <AnimSection layer={layer} set={set} />}
       </div>
+    </div>
+  )
+}
+
+/** Fill controls: solid color or two-stop gradient (shapes and text). */
+function FillSection({
+  layer,
+  set,
+  label = 'Fill'
+}: {
+  layer: Layer
+  set: (patch: Partial<Layer>) => void
+  label?: string
+}): JSX.Element {
+  const g = layer.gradient
+  return (
+    <div className="space-y-2">
+      <Row label={label}>
+        <div className="flex gap-1 w-full">
+          <button
+            onClick={() => set({ gradient: null })}
+            className={`flex-1 btn py-1 text-[11px] ${
+              !g ? 'bg-accent text-white' : 'bg-surface-3 text-ink-muted'
+            }`}
+          >
+            Solid
+          </button>
+          <button
+            onClick={() =>
+              set({
+                gradient: g ?? {
+                  type: 'linear',
+                  from: layer.fill ?? '#f97316',
+                  to: '#000000',
+                  angle: 90
+                }
+              })
+            }
+            className={`flex-1 btn py-1 text-[11px] ${
+              g ? 'bg-accent text-white' : 'bg-surface-3 text-ink-muted'
+            }`}
+          >
+            Gradient
+          </button>
+        </div>
+      </Row>
+      {!g ? (
+        <ColorField value={layer.fill} onChange={(v) => set({ fill: v })} />
+      ) : (
+        <>
+          <Row label="From">
+            <ColorField value={g.from} onChange={(v) => set({ gradient: { ...g, from: v } })} />
+          </Row>
+          <Row label="To">
+            <ColorField value={g.to} onChange={(v) => set({ gradient: { ...g, to: v } })} />
+          </Row>
+          <Row label="Type">
+            <select
+              className="input text-xs"
+              value={g.type}
+              onChange={(e) =>
+                set({ gradient: { ...g, type: e.target.value as 'linear' | 'radial' } })
+              }
+            >
+              <option value="linear">Linear</option>
+              <option value="radial">Radial</option>
+            </select>
+          </Row>
+          {g.type === 'linear' && (
+            <Row label="Angle">
+              <input
+                type="range"
+                min={0}
+                max={360}
+                step={1}
+                value={g.angle ?? 0}
+                onChange={(e) => set({ gradient: { ...g, angle: Number(e.target.value) } })}
+                className="w-full"
+              />
+            </Row>
+          )}
+        </>
+      )}
     </div>
   )
 }

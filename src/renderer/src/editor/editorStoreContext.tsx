@@ -37,6 +37,11 @@ export interface SharedEditorState {
   setCropMode: (id: string | null) => void
   setZoom: (zoom: number) => void
   setPan: (pan: { x: number; y: number }) => void
+  // Design-only workspace aids (absent in the video editor store).
+  lockAspect?: boolean
+  guides?: { x: number[]; y: number[] }
+  addGuide?: (axis: 'x' | 'y', pos: number) => void
+  removeGuide?: (axis: 'x' | 'y', index: number) => void
 }
 
 export type SharedEditorStore = UseBoundStore<StoreApi<SharedEditorState>>

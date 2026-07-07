@@ -5,6 +5,7 @@ import { animateLayer } from './videoAnim'
 import { buildPanelPrimitives } from './panelShapes'
 import { dataUrlToBytes } from './bytes'
 import { Temperature } from './konvaFilters'
+import { gradientToKonvaProps, offsetGradient } from './gradients'
 import type { Layer, VideoScene } from '@shared/types'
 
 /** Shadow props shared by every shape/text/image node in the export path. */
@@ -17,6 +18,19 @@ function shadowProps(layer: Layer): Record<string, unknown> {
   }
 }
 
+function blendProp(layer: Layer): Record<string, unknown> {
+  return layer.blendMode && layer.blendMode !== 'normal'
+    ? { globalCompositeOperation: layer.blendMode }
+    : {}
+}
+
+/** Corner/top-left gradient fill props, or { fill } when there is no gradient. */
+function fillFor(layer: Layer, centered = false): Record<string, unknown> {
+  const g = gradientToKonvaProps(layer.gradient, layer.width, layer.height)
+  if (!g) return { fill: layer.fill }
+  return { ...(centered ? offsetGradient(g, -layer.width / 2, -layer.height / 2) : g) }
+}
+
 /** Load an image element (CORS-safe) for export rendering. */
 function loadImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -26,6 +40,11 @@ function loadImage(url: string): Promise<HTMLImageElement> {
     img.onerror = reject
     img.src = url
   })
+}
+
+/** Public alias for the design page thumbnail renderer (see lib/pageThumbnail.ts). */
+export function addLayerNodeForThumbnail(konvaLayer: Konva.Layer, layer: Layer): Promise<void> {
+  return addLayerNode(konvaLayer, layer)
 }
 
 /** Add a single design Layer to a Konva layer imperatively (export only). */
@@ -41,7 +60,8 @@ async function addLayerNode(
     rotation: layer.rotation,
     scaleX: layer.scaleX,
     scaleY: layer.scaleY,
-    opacity: layer.opacity
+    opacity: layer.opacity,
+    ...blendProp(layer)
   }
 
   switch (layer.type) {
@@ -59,6 +79,7 @@ async function addLayerNode(
           align: layer.align ?? 'left',
           letterSpacing: layer.letterSpacing ?? 0,
           lineHeight: layer.lineHeight ?? 1.2,
+          ...(layer.gradient ? fillFor(layer) : { fill: layer.fill ?? '#ffffff' }),
           stroke: layer.strokeWidth ? layer.strokeColor : undefined,
           strokeWidth: layer.strokeWidth ?? 0
         })
@@ -71,7 +92,7 @@ async function addLayerNode(
           ...shadowProps(layer),
           width: layer.width,
           height: layer.height,
-          fill: layer.fill,
+          ...fillFor(layer),
           cornerRadius: layer.cornerRadius ?? 0,
           stroke: layer.strokeWidth ? layer.strokeColor : undefined,
           strokeWidth: layer.strokeWidth ?? 0
@@ -87,7 +108,7 @@ async function addLayerNode(
           y: layer.y + layer.height / 2,
           radiusX: layer.width / 2,
           radiusY: layer.height / 2,
-          fill: layer.fill,
+          ...fillFor(layer, true),
           stroke: layer.strokeWidth ? layer.strokeColor : undefined,
           strokeWidth: layer.strokeWidth ?? 0
         })
@@ -106,7 +127,7 @@ async function addLayerNode(
           radius: r,
           scaleX: (layer.scaleX || 1) * (layer.width / (2 * r)),
           scaleY: (layer.scaleY || 1) * (layer.height / (2 * r)),
-          fill: layer.fill,
+          ...fillFor(layer, true),
           stroke: layer.strokeWidth ? layer.strokeColor : undefined,
           strokeWidth: layer.strokeWidth ?? 0,
           strokeScaleEnabled: false

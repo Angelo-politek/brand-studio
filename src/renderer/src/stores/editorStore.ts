@@ -28,6 +28,10 @@ interface EditorState {
   gridSize: number
   cropMode: string | null
   clipboard: Layer[]
+  /** Constrain resize to the current aspect ratio (Transformer keepRatio). */
+  lockAspect: boolean
+  /** User guides in canvas coords, per axis (session only, not persisted). */
+  guides: { x: number[]; y: number[] }
 
   loadProject: (p: Project) => void
   setName: (name: string) => void
@@ -58,6 +62,10 @@ interface EditorState {
   setPan: (pan: { x: number; y: number }) => void
   toggleGrid: () => void
   toggleSafe: () => void
+  toggleLockAspect: () => void
+  addGuide: (axis: 'x' | 'y', pos: number) => void
+  removeGuide: (axis: 'x' | 'y', index: number) => void
+  clearGuides: () => void
 
   // Alignment
   alignSelected: (
@@ -72,6 +80,7 @@ interface EditorState {
   deletePage: (id: string) => void
   duplicatePage: (id: string) => void
   renamePage: (id: string, name: string) => void
+  reorderPage: (id: string, toIndex: number) => void
 }
 
 function clone(layers: Layer[], offset = 24): Layer[] {
@@ -195,6 +204,8 @@ export const useEditorStore = create<EditorState>()(
       gridSize: 40,
       cropMode: null,
       clipboard: [],
+      lockAspect: false,
+      guides: { x: [], y: [] },
 
       loadProject: (p) => {
         const pages: Page[] =
@@ -382,6 +393,14 @@ export const useEditorStore = create<EditorState>()(
       setPan: (pan) => set({ pan }),
       toggleGrid: () => set((s) => ({ showGrid: !s.showGrid })),
       toggleSafe: () => set((s) => ({ showSafe: !s.showSafe })),
+      toggleLockAspect: () => set((s) => ({ lockAspect: !s.lockAspect })),
+      addGuide: (axis, pos) =>
+        set((s) => ({ guides: { ...s.guides, [axis]: [...s.guides[axis], Math.round(pos)] } })),
+      removeGuide: (axis, index) =>
+        set((s) => ({
+          guides: { ...s.guides, [axis]: s.guides[axis].filter((_, i) => i !== index) }
+        })),
+      clearGuides: () => set({ guides: { x: [], y: [] } }),
 
       // ── Alignment ────────────────────────────────────────────────────────
 
@@ -521,7 +540,17 @@ export const useEditorStore = create<EditorState>()(
         }),
 
       renamePage: (id, name) =>
-        set((s) => ({ pages: s.pages.map((p) => (p.id === id ? { ...p, name } : p)) }))
+        set((s) => ({ pages: s.pages.map((p) => (p.id === id ? { ...p, name } : p)) })),
+
+      reorderPage: (id, toIndex) =>
+        set((s) => {
+          const from = s.pages.findIndex((p) => p.id === id)
+          if (from < 0) return {}
+          const pages = [...s.pages]
+          const [item] = pages.splice(from, 1)
+          pages.splice(Math.max(0, Math.min(pages.length, toIndex)), 0, item)
+          return { pages }
+        })
     }),
     {
       partialize: (state) => ({

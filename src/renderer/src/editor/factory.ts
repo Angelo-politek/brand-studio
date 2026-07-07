@@ -100,20 +100,30 @@ export function createPanelComponent(
   }
 }
 
-export function createIconLayer(name: string, canvas: CanvasSpec, color = '#111111'): Layer {
+/**
+ * Create an icon layer. Brand logos (with an official `defaultColor`) keep
+ * their own colors — `fill` is left undefined. Outline icons take the brand
+ * color so they blend into the design.
+ */
+export function createIconLayer(
+  entry: { id: string; label: string; defaultColor: string | null },
+  canvas: CanvasSpec,
+  brandColor = '#111111'
+): Layer {
   const size = Math.min(canvas.width, canvas.height) * 0.2
   counter += 1
   return {
     ...base(canvas),
     id: uuid(),
     type: 'icon',
-    name: `Icon ${counter}`,
+    name: entry.label || `Icon ${counter}`,
     width: size,
     height: size,
     x: canvas.width / 2 - size / 2,
     y: canvas.height / 2 - size / 2,
-    fill: color,
-    icon: { name }
+    // Brand logos: no fill → keep official colors. Outline icons: brand color.
+    fill: entry.defaultColor ? undefined : brandColor,
+    icon: { id: entry.id }
   }
 }
 

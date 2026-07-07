@@ -37,9 +37,10 @@ export function applyBrandToLayers(layers: Layer[], brand: Brand): Layer[] {
     if (['rect', 'circle', 'triangle', 'polygon'].includes(l.type)) {
       return secondary ? { ...l, fill: secondary } : l
     }
-    // Icons follow the primary color (they're recolored by `fill`).
+    // Outline icons follow the primary color; brand LOGOS (no fill → keep their
+    // official colors) are left untouched.
     if (l.type === 'icon') {
-      return primary ? { ...l, fill: primary } : l
+      return primary && l.fill ? { ...l, fill: primary } : l
     }
     // Lines/arrows use stroke color.
     if (['line', 'arrow'].includes(l.type)) {

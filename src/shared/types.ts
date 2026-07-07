@@ -234,8 +234,10 @@ export interface Layer {
     params: PanelComponentParams
   }
 
-  // icon (Lucide vector, recolored by `fill`)
-  icon?: { name: string }
+  // icon (vector from Lucide or Simple Icons, id = "source:name")
+  // When `fill` is set the icon is recolored; when absent, brand-logo icons
+  // keep their official colors.
+  icon?: { id: string }
 }
 
 /** Konva globalCompositeOperation subset exposed as per-layer blend modes. */

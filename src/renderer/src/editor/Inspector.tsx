@@ -578,11 +578,7 @@ export default function Inspector(): JSX.Element | null {
         )}
 
         {/* Icon */}
-        {layer.type === 'icon' && (
-          <Row label="Color">
-            <ColorField value={layer.fill} onChange={(v) => set({ fill: v })} />
-          </Row>
-        )}
+        {layer.type === 'icon' && <IconSection layer={layer} set={set} />}
 
         {/* Hardware panel component */}
         {layer.type === 'panelComponent' && layer.component && (
@@ -1002,6 +998,43 @@ export default function Inspector(): JSX.Element | null {
         {/* Animation (video editor only, any layer type) */}
         {isVideo && <AnimSection layer={layer} set={set} />}
       </div>
+    </div>
+  )
+}
+
+/** Icon color: original brand colors vs a custom recolor. */
+function IconSection({
+  layer,
+  set
+}: {
+  layer: Layer
+  set: (patch: Partial<Layer>) => void
+}): JSX.Element {
+  const custom = layer.fill != null
+  return (
+    <div className="space-y-2">
+      <Row label="Color">
+        <div className="flex gap-1 w-full">
+          <button
+            onClick={() => set({ fill: undefined })}
+            className={`flex-1 btn py-1 text-[11px] ${
+              !custom ? 'bg-accent text-white' : 'bg-surface-3 text-ink-muted'
+            }`}
+            title="Keep the icon's original colors"
+          >
+            Original
+          </button>
+          <button
+            onClick={() => set({ fill: layer.fill ?? '#111111' })}
+            className={`flex-1 btn py-1 text-[11px] ${
+              custom ? 'bg-accent text-white' : 'bg-surface-3 text-ink-muted'
+            }`}
+          >
+            Custom
+          </button>
+        </div>
+      </Row>
+      {custom && <ColorField value={layer.fill} onChange={(v) => set({ fill: v })} />}
     </div>
   )
 }

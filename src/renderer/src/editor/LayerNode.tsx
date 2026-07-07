@@ -372,18 +372,19 @@ function IconNode({
   common: Record<string, unknown>
 }): JSX.Element | null {
   const [img, setImg] = useState<HTMLImageElement | null>(null)
-  const name = layer.icon?.name
-  const color = layer.fill ?? '#111111'
+  const id = layer.icon?.id
+  // fill undefined → keep the icon's own colors (brand logos).
+  const color = layer.fill ?? null
   useEffect(() => {
     let alive = true
-    if (!name) return
-    void iconToImage(name, color).then((i) => {
+    if (!id) return
+    void iconToImage(id, color).then((i) => {
       if (alive) setImg(i)
     })
     return () => {
       alive = false
     }
-  }, [name, color])
+  }, [id, color])
   if (!img) return null
   return (
     <Group {...common}>

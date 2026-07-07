@@ -218,7 +218,7 @@ async function addLayerNode(
     }
     case 'icon': {
       if (!layer.icon) break
-      const iconImg = await iconToImage(layer.icon.name, layer.fill ?? '#111111')
+      const iconImg = await iconToImage(layer.icon.id, layer.fill ?? null)
       if (!iconImg) break
       konvaLayer.add(
         new Konva.Image({ ...common, image: iconImg, width: layer.width, height: layer.height })

@@ -39,6 +39,7 @@
     "react-hotkeys-hook": "^4.6.1",
     "react-konva": "^18.2.10",
     "react-router-dom": "^6.28.1",
+    "simple-icons": "^16.25.0",
     "uuid": "^11.0.5",
     "virtua": "^0.39.0",
     "zod": "^3.25.76",

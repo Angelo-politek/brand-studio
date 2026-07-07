@@ -39,7 +39,7 @@ import {
 } from './factory'
 import { isImageMime } from '@renderer/lib/mime'
 import { pickFiles } from '@renderer/lib/files'
-import { searchIcons, loadIconSvg } from '@renderer/lib/icons'
+import { searchIcons, loadIconSvg, type IconEntry, type IconCategory } from '@renderer/lib/icons'
 import { ASSET_FOLDERS } from '@shared/types'
 import type { Asset, AssetFolder, LayerType, PanelComponentKind } from '@shared/types'
 
@@ -144,9 +144,9 @@ export default function ElementsPanel(): JSX.Element {
     const accent = brand?.colors.find((c) => c.role === 'accent')?.hex ?? brand?.colors[0]?.hex
     addLayer(createPanelComponent(kind, canvas, accent))
   }
-  function addIcon(name: string): void {
+  function addIcon(entry: IconEntry): void {
     const color = brand?.colors[0]?.hex ?? '#111111'
-    addLayer(createIconLayer(name, canvas, color))
+    addLayer(createIconLayer(entry, canvas, color))
   }
 
   return (
@@ -299,13 +299,21 @@ export default function ElementsPanel(): JSX.Element {
   )
 }
 
-/** Searchable Lucide icon grid. Icons render via the raw SVG (currentColor). */
-function IconsTab({ onPick }: { onPick: (name: string) => void }): JSX.Element {
+const ICON_CATEGORIES: { value: IconCategory; label: string }[] = [
+  { value: 'social', label: 'Social' },
+  { value: 'audio', label: 'Audio' },
+  { value: 'general', label: 'General' },
+  { value: 'all', label: 'All' }
+]
+
+/** Icon grid across Lucide (outline) + Simple Icons (brand logos), by category. */
+function IconsTab({ onPick }: { onPick: (entry: IconEntry) => void }): JSX.Element {
   const [query, setQuery] = useState('')
-  const results = searchIcons(query, 240)
+  const [category, setCategory] = useState<IconCategory>('social')
+  const results = searchIcons(query, category, 300)
   return (
     <div className="flex-1 min-h-0 flex flex-col">
-      <div className="p-3 pb-2">
+      <div className="p-3 pb-2 space-y-2">
         <div className="relative">
           <Search
             size={13}
@@ -314,9 +322,25 @@ function IconsTab({ onPick }: { onPick: (name: string) => void }): JSX.Element {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search icons…"
+            placeholder="Search icons & logos…"
             className="input w-full pl-7 text-xs"
           />
+        </div>
+        <div className="flex gap-1">
+          {ICON_CATEGORIES.map((c) => (
+            <button
+              key={c.value}
+              onClick={() => setCategory(c.value)}
+              className={cn(
+                'flex-1 px-1.5 py-1 rounded text-[11px] transition-colors',
+                category === c.value
+                  ? 'bg-surface-3 text-ink'
+                  : 'text-ink-muted hover:bg-surface-2'
+              )}
+            >
+              {c.label}
+            </button>
+          ))}
         </div>
       </div>
       <div className="flex-1 overflow-y-auto px-3 pb-3">
@@ -326,12 +350,12 @@ function IconsTab({ onPick }: { onPick: (name: string) => void }): JSX.Element {
           <div className="grid grid-cols-5 gap-1.5">
             {results.map((ic) => (
               <button
-                key={ic.name}
-                onClick={() => onPick(ic.name)}
-                className="aspect-square rounded-md border border-line grid place-items-center p-1.5 text-ink hover:border-accent hover:text-accent"
+                key={ic.id}
+                onClick={() => onPick(ic)}
+                className="aspect-square rounded-md border border-line grid place-items-center p-1.5 text-ink hover:border-accent hover:bg-surface-2"
                 title={ic.label}
               >
-                <IconThumb name={ic.name} />
+                <IconThumb entry={ic} />
               </button>
             ))}
           </div>
@@ -341,22 +365,32 @@ function IconsTab({ onPick }: { onPick: (name: string) => void }): JSX.Element {
   )
 }
 
-/** Small preview that lazy-loads an icon's SVG and inlines it (currentColor). */
-function IconThumb({ name }: { name: string }): JSX.Element {
+/** Preview that lazy-loads an icon's SVG and inlines it (keeps its own color). */
+function IconThumb({ entry }: { entry: IconEntry }): JSX.Element {
   const [svg, setSvg] = useState<string | null>(null)
   useEffect(() => {
     let alive = true
-    void loadIconSvg(name).then((s) => {
-      // Force the intrinsic size to the button box.
-      if (alive && s)
-        setSvg(s.replace(/width="\d+"/, 'width="20"').replace(/height="\d+"/, 'height="20"'))
+    void loadIconSvg(entry.id).then((s) => {
+      if (!alive || !s) return
+      let out = s
+        .replace(/width="\d+"/, 'width="20"')
+        .replace(/height="\d+"/, 'height="20"')
+      // Brand logos: tint the monochrome path with the official color so the
+      // gallery previews look like the real logos.
+      if (entry.source === 'simple' && entry.defaultColor) {
+        out = out.replace('<svg ', `<svg fill="${entry.defaultColor}" `)
+      }
+      setSvg(out)
     })
     return () => {
       alive = false
     }
-  }, [name])
+  }, [entry])
   return svg ? (
-    <span className="[&>svg]:w-5 [&>svg]:h-5" dangerouslySetInnerHTML={{ __html: svg }} />
+    <span
+      className="[&>svg]:w-5 [&>svg]:h-5 text-current"
+      dangerouslySetInnerHTML={{ __html: svg }}
+    />
   ) : (
     <span className="w-5 h-5" />
   )

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Konva from 'konva'
 import {
   Text,
@@ -15,6 +15,7 @@ import { mediaUrl } from '@shared/ipc'
 import { useImageWithStatus } from '@renderer/lib/useImage'
 import { Temperature } from '@renderer/lib/konvaFilters'
 import { gradientToKonvaProps, offsetGradient } from '@renderer/lib/gradients'
+import { iconToImage } from '@renderer/lib/icons'
 import PanelComponentNode from './panel/PanelComponentNode'
 import type { BlendMode, Layer } from '@shared/types'
 
@@ -362,6 +363,37 @@ function ImageNode({
   )
 }
 
+/** Lucide vector icon rasterized + recolored to the layer's fill. */
+function IconNode({
+  layer,
+  common
+}: {
+  layer: Layer
+  common: Record<string, unknown>
+}): JSX.Element | null {
+  const [img, setImg] = useState<HTMLImageElement | null>(null)
+  const name = layer.icon?.name
+  const color = layer.fill ?? '#111111'
+  useEffect(() => {
+    let alive = true
+    if (!name) return
+    void iconToImage(name, color).then((i) => {
+      if (alive) setImg(i)
+    })
+    return () => {
+      alive = false
+    }
+  }, [name, color])
+  if (!img) return null
+  return (
+    <Group {...common}>
+      <KonvaImage image={img} width={layer.width} height={layer.height} listening />
+      {/* Invisible hit area so the whole box is clickable even where the icon is thin. */}
+      <Rect width={layer.width} height={layer.height} fill="transparent" />
+    </Group>
+  )
+}
+
 export default function LayerNode({
   layer,
   ctx
@@ -422,6 +454,8 @@ export default function LayerNode({
       )
     case 'image':
       return <ImageNode layer={layer} common={common} />
+    case 'icon':
+      return <IconNode layer={layer} common={common} />
     case 'circle':
       return (
         <Group {...common}>

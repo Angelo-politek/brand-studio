@@ -100,6 +100,23 @@ export function createPanelComponent(
   }
 }
 
+export function createIconLayer(name: string, canvas: CanvasSpec, color = '#111111'): Layer {
+  const size = Math.min(canvas.width, canvas.height) * 0.2
+  counter += 1
+  return {
+    ...base(canvas),
+    id: uuid(),
+    type: 'icon',
+    name: `Icon ${counter}`,
+    width: size,
+    height: size,
+    x: canvas.width / 2 - size / 2,
+    y: canvas.height / 2 - size / 2,
+    fill: color,
+    icon: { name }
+  }
+}
+
 export function createImageLayer(
   canvas: CanvasSpec,
   src: string,

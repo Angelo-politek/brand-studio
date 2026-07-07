@@ -21,7 +21,9 @@ import {
   CircleDot,
   Settings2,
   Calculator,
-  MonitorSmartphone
+  MonitorSmartphone,
+  Sparkles,
+  Search
 } from 'lucide-react'
 import { cn } from '@renderer/lib/cn'
 import { mediaUrl } from '@shared/ipc'
@@ -32,10 +34,12 @@ import {
   createTextLayer,
   createShapeLayer,
   createImageLayer,
-  createPanelComponent
+  createPanelComponent,
+  createIconLayer
 } from './factory'
 import { isImageMime } from '@renderer/lib/mime'
 import { pickFiles } from '@renderer/lib/files'
+import { searchIcons, loadIconSvg } from '@renderer/lib/icons'
 import { ASSET_FOLDERS } from '@shared/types'
 import type { Asset, AssetFolder, LayerType, PanelComponentKind } from '@shared/types'
 
@@ -66,7 +70,7 @@ type FolderTab = AssetFolder | 'All'
 const FOLDER_TABS: FolderTab[] = ['All', ...ASSET_FOLDERS]
 
 export default function ElementsPanel(): JSX.Element {
-  const [tab, setTab] = useState<'elements' | 'assets'>('elements')
+  const [tab, setTab] = useState<'elements' | 'icons' | 'assets'>('elements')
   const [folder, setFolder] = useState<FolderTab>('All')
   const useStore = useEditorStoreApi()
   const { canvas, addLayer } = useStore()
@@ -140,11 +144,15 @@ export default function ElementsPanel(): JSX.Element {
     const accent = brand?.colors.find((c) => c.role === 'accent')?.hex ?? brand?.colors[0]?.hex
     addLayer(createPanelComponent(kind, canvas, accent))
   }
+  function addIcon(name: string): void {
+    const color = brand?.colors[0]?.hex ?? '#111111'
+    addLayer(createIconLayer(name, canvas, color))
+  }
 
   return (
     <div className="w-64 shrink-0 h-full bg-surface-1 border-r border-line flex flex-col">
       <div className="flex border-b border-line">
-        {(['elements', 'assets'] as const).map((t) => (
+        {(['elements', 'icons', 'assets'] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -153,13 +161,21 @@ export default function ElementsPanel(): JSX.Element {
               tab === t ? 'text-ink border-b-2 border-accent' : 'text-ink-muted'
             )}
           >
-            {t === 'elements' ? <Shapes size={14} /> : <Images size={14} />}
+            {t === 'elements' ? (
+              <Shapes size={14} />
+            ) : t === 'icons' ? (
+              <Sparkles size={14} />
+            ) : (
+              <Images size={14} />
+            )}
             {t}
           </button>
         ))}
       </div>
 
-      {tab === 'elements' ? (
+      {tab === 'icons' ? (
+        <IconsTab onPick={addIcon} />
+      ) : tab === 'elements' ? (
         <div className="flex-1 overflow-y-auto p-3">
           <div className="space-y-4">
             <div>
@@ -280,5 +296,68 @@ export default function ElementsPanel(): JSX.Element {
         </div>
       )}
     </div>
+  )
+}
+
+/** Searchable Lucide icon grid. Icons render via the raw SVG (currentColor). */
+function IconsTab({ onPick }: { onPick: (name: string) => void }): JSX.Element {
+  const [query, setQuery] = useState('')
+  const results = searchIcons(query, 240)
+  return (
+    <div className="flex-1 min-h-0 flex flex-col">
+      <div className="p-3 pb-2">
+        <div className="relative">
+          <Search
+            size={13}
+            className="absolute left-2 top-1/2 -translate-y-1/2 text-ink-faint pointer-events-none"
+          />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search icons…"
+            className="input w-full pl-7 text-xs"
+          />
+        </div>
+      </div>
+      <div className="flex-1 overflow-y-auto px-3 pb-3">
+        {results.length === 0 ? (
+          <p className="text-xs text-ink-faint text-center py-6">No icons found.</p>
+        ) : (
+          <div className="grid grid-cols-5 gap-1.5">
+            {results.map((ic) => (
+              <button
+                key={ic.name}
+                onClick={() => onPick(ic.name)}
+                className="aspect-square rounded-md border border-line grid place-items-center p-1.5 text-ink hover:border-accent hover:text-accent"
+                title={ic.label}
+              >
+                <IconThumb name={ic.name} />
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/** Small preview that lazy-loads an icon's SVG and inlines it (currentColor). */
+function IconThumb({ name }: { name: string }): JSX.Element {
+  const [svg, setSvg] = useState<string | null>(null)
+  useEffect(() => {
+    let alive = true
+    void loadIconSvg(name).then((s) => {
+      // Force the intrinsic size to the button box.
+      if (alive && s)
+        setSvg(s.replace(/width="\d+"/, 'width="20"').replace(/height="\d+"/, 'height="20"'))
+    })
+    return () => {
+      alive = false
+    }
+  }, [name])
+  return svg ? (
+    <span className="[&>svg]:w-5 [&>svg]:h-5" dangerouslySetInnerHTML={{ __html: svg }} />
+  ) : (
+    <span className="w-5 h-5" />
   )
 }

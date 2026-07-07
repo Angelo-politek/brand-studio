@@ -6,6 +6,7 @@ import { buildPanelPrimitives } from './panelShapes'
 import { dataUrlToBytes } from './bytes'
 import { Temperature } from './konvaFilters'
 import { gradientToKonvaProps, offsetGradient } from './gradients'
+import { iconToImage } from './icons'
 import type { Layer, VideoScene } from '@shared/types'
 
 /** Shadow props shared by every shape/text/image node in the export path. */
@@ -213,6 +214,15 @@ async function addLayerNode(
       } else {
         konvaLayer.add(imgNode)
       }
+      break
+    }
+    case 'icon': {
+      if (!layer.icon) break
+      const iconImg = await iconToImage(layer.icon.name, layer.fill ?? '#111111')
+      if (!iconImg) break
+      konvaLayer.add(
+        new Konva.Image({ ...common, image: iconImg, width: layer.width, height: layer.height })
+      )
       break
     }
     case 'panelComponent': {

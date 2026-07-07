@@ -577,6 +577,13 @@ export default function Inspector(): JSX.Element | null {
           </>
         )}
 
+        {/* Icon */}
+        {layer.type === 'icon' && (
+          <Row label="Color">
+            <ColorField value={layer.fill} onChange={(v) => set({ fill: v })} />
+          </Row>
+        )}
+
         {/* Hardware panel component */}
         {layer.type === 'panelComponent' && layer.component && (
           <PanelComponentSection layer={layer} set={set} />

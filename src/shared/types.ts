@@ -110,6 +110,7 @@ export type LayerType =
   | 'image'
   | 'group'
   | 'panelComponent'
+  | 'icon'
 
 /** Hardware front-panel component kinds (music-gear mockups). */
 export type PanelComponentKind =
@@ -232,6 +233,9 @@ export interface Layer {
     kind: PanelComponentKind
     params: PanelComponentParams
   }
+
+  // icon (Lucide vector, recolored by `fill`)
+  icon?: { name: string }
 }
 
 /** Konva globalCompositeOperation subset exposed as per-layer blend modes. */

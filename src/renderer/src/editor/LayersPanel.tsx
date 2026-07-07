@@ -16,7 +16,8 @@ import {
   MoveRight,
   Image as ImageIcon,
   Group as GroupIcon,
-  Disc
+  Disc,
+  Sparkles
 } from 'lucide-react'
 import { cn } from '@renderer/lib/cn'
 import { useEditorStoreApi } from './editorStoreContext'
@@ -32,7 +33,8 @@ const ICONS: Record<LayerType, typeof Type> = {
   arrow: MoveRight,
   image: ImageIcon,
   group: GroupIcon,
-  panelComponent: Disc
+  panelComponent: Disc,
+  icon: Sparkles
 }
 
 export default function LayersPanel(): JSX.Element {

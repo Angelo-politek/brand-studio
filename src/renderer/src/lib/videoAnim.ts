@@ -1,5 +1,30 @@
 import type { Layer, LayerAnimationEasing, SceneTransition } from '@shared/types'
 
+/**
+ * Map a global timeline position (ms) onto the scene strip: which scene is
+ * showing and the local playhead within it. Pure, so the playback clock is
+ * unit-tested. `atEnd` is true once the position reaches the total duration.
+ */
+export function locateOnTimeline(
+  scenes: { id: string; durationMs: number }[],
+  globalMs: number
+): { sceneId: string; localMs: number; atEnd: boolean } {
+  const total = scenes.reduce((sum, s) => sum + s.durationMs, 0)
+  if (scenes.length === 0) return { sceneId: '', localMs: 0, atEnd: true }
+  if (globalMs >= total) {
+    const lastScene = scenes[scenes.length - 1]
+    return { sceneId: lastScene.id, localMs: lastScene.durationMs, atEnd: true }
+  }
+  let acc = 0
+  for (const s of scenes) {
+    if (globalMs < acc + s.durationMs) {
+      return { sceneId: s.id, localMs: Math.max(0, globalMs - acc), atEnd: false }
+    }
+    acc += s.durationMs
+  }
+  return { sceneId: scenes[0].id, localMs: 0, atEnd: false }
+}
+
 /** Standard easing curves for enter/exit progress (0..1 → 0..1). */
 export function ease(p: number, easing?: LayerAnimationEasing): number {
   const t = Math.max(0, Math.min(1, p))

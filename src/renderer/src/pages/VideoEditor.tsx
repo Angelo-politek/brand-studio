@@ -27,7 +27,12 @@ import {
   renderSceneOverlayFrames,
   sceneHasAnimation
 } from '@renderer/lib/videoExport'
-import { animateLayer, sceneTransitionState, TRANSITION_IDENTITY } from '@renderer/lib/videoAnim'
+import {
+  animateLayer,
+  sceneTransitionState,
+  locateOnTimeline,
+  TRANSITION_IDENTITY
+} from '@renderer/lib/videoAnim'
 import {
   startVideoExport,
   getVideoJob,
@@ -187,55 +192,55 @@ export default function VideoEditor(): JSX.Element {
     return () => clearTimeout(t)
   }, [name, scenes, audio, store])
 
-  // Scene-local playback clock. When music is present it is the MASTER clock:
-  // the playhead is derived from audio.currentTime so visuals never drift from
-  // the sound. Without music, performance.now() advances the playhead.
+  // Scene-local playback clock. The wall clock (performance.now) always drives
+  // the visuals so they can never stall; when music is present its element is
+  // nudged toward the visual position each frame (and the visuals are gently
+  // corrected toward it) so the two stay locked without either freezing.
   useEffect(() => {
     if (!playing) return
     let raf = 0
     let last = performance.now()
+    // Global elapsed ms tracked directly, independent of the store's per-scene
+    // playhead, so the wall clock is authoritative and monotonic.
+    const startState = store.getState()
+    const startIdx = Math.max(
+      0,
+      startState.scenes.findIndex((s) => s.id === startState.activeSceneId)
+    )
+    let globalMs =
+      startState.scenes.slice(0, startIdx).reduce((sum, s) => sum + s.durationMs, 0) +
+      startState.playheadMs
+    const startedAt = last
+
     const tick = (t: number): void => {
       const dt = t - last
       last = t
       const cur = store.getState()
-      const scene = cur.scenes.find((s) => s.id === cur.activeSceneId)
-      if (!scene) return
+      if (cur.scenes.length === 0) return
 
+      globalMs += dt
+
+      // Keep visuals and music locked: if the audio has drifted more than
+      // ~180ms from the visuals, snap the visual clock to the audio (audio is
+      // the reference for large drifts only). Skip the first ~400ms so an
+      // in-flight seek at play-start doesn't yank the visuals.
       const a = musicRef.current
-      const idx = cur.scenes.findIndex((s) => s.id === cur.activeSceneId)
-      const before = cur.scenes.slice(0, idx).reduce((sum, s) => sum + s.durationMs, 0)
-
-      // Global elapsed either from the audio master clock or the wall clock.
-      let globalMs: number
-      if (a && cur.audio && !a.paused) {
-        globalMs = a.currentTime * 1000 - cur.audio.inMs
-        if (globalMs < 0) globalMs = 0
-      } else {
-        globalMs = before + cur.playheadMs + dt
-      }
-
-      // Map the global position back onto the scene strip.
-      let acc = 0
-      let targetScene = cur.scenes[cur.scenes.length - 1]
-      let localMs = targetScene.durationMs
-      for (const s of cur.scenes) {
-        if (globalMs < acc + s.durationMs) {
-          targetScene = s
-          localMs = globalMs - acc
-          break
+      if (a && cur.audio && !a.paused && a.readyState >= 3 && t - startedAt > 400) {
+        const audioGlobal = a.currentTime * 1000 - cur.audio.inMs
+        if (Math.abs(audioGlobal - globalMs) > 180) {
+          globalMs = Math.max(0, audioGlobal)
         }
-        acc += s.durationMs
       }
 
-      const totalMs = cur.scenes.reduce((sum, s) => sum + s.durationMs, 0)
-      if (globalMs >= totalMs) {
+      const pos = locateOnTimeline(cur.scenes, globalMs)
+      if (pos.atEnd) {
         cur.setPlaying(false)
         cur.setActiveScene(cur.scenes[0].id)
         cur.setPlayhead(0)
         return
       }
-      if (targetScene.id !== cur.activeSceneId) cur.setActiveScene(targetScene.id)
-      cur.setPlayhead(Math.max(0, localMs))
+      if (pos.sceneId !== cur.activeSceneId) cur.setActiveScene(pos.sceneId)
+      cur.setPlayhead(pos.localMs)
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)

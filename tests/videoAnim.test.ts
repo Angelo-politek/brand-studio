@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { animateLayer, ease, sceneTransitionState } from '@renderer/lib/videoAnim'
+import {
+  animateLayer,
+  ease,
+  sceneTransitionState,
+  locateOnTimeline
+} from '@renderer/lib/videoAnim'
 import type { Layer, LayerAnimation } from '@shared/types'
 
 function layer(anim?: LayerAnimation): Layer {
@@ -111,6 +116,30 @@ describe('ease', () => {
       3000
     )
     expect(eased.opacity).toBeLessThan(linear.opacity)
+  })
+})
+
+describe('locateOnTimeline', () => {
+  const scenes = [
+    { id: 'a', durationMs: 2000 },
+    { id: 'b', durationMs: 3000 },
+    { id: 'c', durationMs: 1000 }
+  ]
+
+  it('advances the visible scene as the global clock moves', () => {
+    expect(locateOnTimeline(scenes, 0)).toMatchObject({ sceneId: 'a', localMs: 0, atEnd: false })
+    expect(locateOnTimeline(scenes, 1500)).toMatchObject({ sceneId: 'a', localMs: 1500 })
+    expect(locateOnTimeline(scenes, 2500)).toMatchObject({ sceneId: 'b', localMs: 500 })
+    expect(locateOnTimeline(scenes, 5200)).toMatchObject({ sceneId: 'c', localMs: 200 })
+  })
+
+  it('flags the end once past the total duration', () => {
+    expect(locateOnTimeline(scenes, 6000).atEnd).toBe(true)
+    expect(locateOnTimeline(scenes, 9999).atEnd).toBe(true)
+  })
+
+  it('handles an empty timeline', () => {
+    expect(locateOnTimeline([], 100)).toEqual({ sceneId: '', localMs: 0, atEnd: true })
   })
 })
 

@@ -530,10 +530,26 @@ function SegmentPreviewButton({
       audioRef.current = new Audio(mediaUrl(src))
     }
     const a = audioRef.current
-    a.currentTime = inMs / 1000
-    void a.play().catch(() => {})
-    setPlaying(true)
-    stopRef.current = window.setTimeout(stop, reelMs)
+    const start = (): void => {
+      try {
+        a.currentTime = inMs / 1000
+      } catch {
+        /* not seekable yet */
+      }
+      void a.play().catch(() => {})
+      setPlaying(true)
+      stopRef.current = window.setTimeout(stop, reelMs)
+    }
+    // Seek only once metadata is loaded, else the segment plays from 0.
+    if (a.readyState >= 1) start()
+    else {
+      const onReady = (): void => {
+        a.removeEventListener('loadedmetadata', onReady)
+        start()
+      }
+      a.addEventListener('loadedmetadata', onReady)
+      a.load()
+    }
   }
 
   useEffect(() => () => stop(), [])

@@ -112,20 +112,40 @@ export default function VideoEditor(): JSX.Element {
     return st.scenes.slice(0, idx).reduce((sum, s) => sum + s.durationMs, 0) + st.playheadMs
   }
 
-  // Start/stop background music on play-state changes. The play effect seeds the
-  // position; the RAF clock below keeps it locked to the visuals during
-  // playback (previously it drifted because it was never re-synced).
+  // Start/stop background music on play-state changes. The seek must land even
+  // when the <audio> hasn't loaded metadata yet (setting currentTime too early
+  // is ignored → the track would start from 0). So we wait for readiness.
   useEffect(() => {
     const a = musicRef.current
     const st = useVideoEditorStore.getState()
     if (!a || !st.audio) return
     const target = (st.audio.inMs + globalElapsedMs()) / 1000
-    if (playing) {
-      a.currentTime = target
-      void a.play().catch(() => {})
-    } else {
+
+    if (!playing) {
       a.pause()
-      a.currentTime = target
+      if (a.readyState >= 1) a.currentTime = target
+      return
+    }
+
+    // Seek then play, retrying the seek once the element is seekable.
+    const seekAndPlay = (): void => {
+      try {
+        a.currentTime = target
+      } catch {
+        /* not seekable yet */
+      }
+      void a.play().catch(() => {})
+    }
+    if (a.readyState >= 1) {
+      seekAndPlay()
+    } else {
+      const onReady = (): void => {
+        a.removeEventListener('loadedmetadata', onReady)
+        seekAndPlay()
+      }
+      a.addEventListener('loadedmetadata', onReady)
+      // Nudge loading in case it hasn't started.
+      a.load()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playing, audioSrc])

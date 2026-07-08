@@ -27,12 +27,29 @@ export default function ExportDialog({ onClose }: { onClose: () => void }): JSX.
   const [format, setFormat] = useState<ExportFmt>('png')
   const [scale, setScale] = useState(2)
   const [quality, setQuality] = useState(0.92)
-  const [allPages, setAllPages] = useState(false)
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState<ExportRecord | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const multiPage = pages.length > 1
+  // Which pages to include when exporting multiple pages (all selected initially).
+  const [selectedPages, setSelectedPages] = useState<Set<string>>(
+    () => new Set(pages.map((p) => p.id))
+  )
+  const chosenPageIds = pages.filter((p) => selectedPages.has(p.id)).map((p) => p.id)
+  // Use the page-capture path whenever a multi-page doc has a selection (even a
+  // single chosen page that isn't the active one). Single-page docs use the
+  // simple active-artboard path.
+  const exportChosen = multiPage && chosenPageIds.length >= 1
+
+  function togglePage(id: string): void {
+    setSelectedPages((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
   const outW = Math.round(canvas.width * (format === 'pdf' ? 1 : scale))
   const outH = Math.round(canvas.height * (format === 'pdf' ? 1 : scale))
   const presets = (brand?.presets ?? []).filter((p) =>
@@ -74,9 +91,9 @@ export default function ExportDialog({ onClose }: { onClose: () => void }): JSX.
     }
   }
 
-  // Capture every page by switching the active page and re-rendering between
-  // captures. Restores the originally active page when done.
-  async function captureAllPages(): Promise<
+  // Capture the CHOSEN pages by switching the active page and re-rendering
+  // between captures. Restores the originally active page when done.
+  async function captureChosenPages(): Promise<
     { bytes: Uint8Array; width: number; height: number }[]
   > {
     const store = useEditorStore.getState()
@@ -84,6 +101,7 @@ export default function ExportDialog({ onClose }: { onClose: () => void }): JSX.
     const out: { bytes: Uint8Array; width: number; height: number }[] = []
     try {
       for (const pg of store.pages) {
+        if (!selectedPages.has(pg.id)) continue
         store.setActivePage(pg.id)
         await nextFrame()
         const stage = getStage()
@@ -107,12 +125,16 @@ export default function ExportDialog({ onClose }: { onClose: () => void }): JSX.
     setBusy(true)
     setError(null)
     try {
-      if (allPages && multiPage) {
-        const captured = await captureAllPages()
+      if (exportChosen) {
+        const captured = await captureChosenPages()
+        if (captured.length === 0) {
+          setError('Select at least one page.')
+          return
+        }
         if (format === 'pdf') {
           const pdf = await pagesToPdf(captured)
-          const saved = await saveBytesAs(pdf, `${name}-all`, 'pdf')
-          if (saved) toast(`Exported ${captured.length} pages to PDF.`, 'success')
+          const saved = await saveBytesAs(pdf, `${name}-pages`, 'pdf')
+          if (saved) toast(`Exported ${captured.length} page(s) to PDF.`, 'success')
         } else {
           // One file per page, each via its own save dialog.
           let n = 0
@@ -252,15 +274,53 @@ export default function ExportDialog({ onClose }: { onClose: () => void }): JSX.
             </p>
 
             {multiPage && (
-              <label className="flex items-center gap-2 text-xs text-ink-muted cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={allPages}
-                  onChange={(e) => setAllPages(e.target.checked)}
-                />
-                Export all {pages.length} pages
-                {allPages && format === 'pdf' ? ' (single PDF)' : ''}
-              </label>
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs text-ink-faint">
+                    Pages to export
+                    {exportChosen && chosenPageIds.length > 1 && format === 'pdf'
+                      ? ' (single PDF)'
+                      : ''}
+                  </label>
+                  <div className="flex gap-2 text-[11px]">
+                    <button
+                      onClick={() => setSelectedPages(new Set(pages.map((p) => p.id)))}
+                      className="text-ink-muted hover:text-accent"
+                    >
+                      All
+                    </button>
+                    <button
+                      onClick={() => setSelectedPages(new Set())}
+                      className="text-ink-muted hover:text-accent"
+                    >
+                      None
+                    </button>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto">
+                  {pages.map((p, i) => {
+                    const on = selectedPages.has(p.id)
+                    return (
+                      <button
+                        key={p.id}
+                        onClick={() => togglePage(p.id)}
+                        className={cn(
+                          'px-2 py-1 rounded text-[11px] border transition-colors',
+                          on
+                            ? 'border-accent bg-accent/15 text-ink'
+                            : 'border-line text-ink-muted hover:text-ink'
+                        )}
+                        title={p.name}
+                      >
+                        {i + 1}. {p.name}
+                      </button>
+                    )
+                  })}
+                </div>
+                {chosenPageIds.length === 0 && (
+                  <p className="text-[11px] text-red-400 mt-1">Select at least one page.</p>
+                )}
+              </div>
             )}
 
             {error && <p className="text-xs text-red-400">{error}</p>}

@@ -16,8 +16,8 @@ import { useCurrentBrand } from '@renderer/stores/brandStore'
 import { removeBackground, recolorToPalette } from '@renderer/lib/python'
 import { usePythonStatus } from '@renderer/components/BackendStatus'
 import { toast } from '@renderer/stores/uiStore'
-import { checkpointHistory } from '@renderer/stores/editorStore'
-import { makeImageThumbnail, downscaleImageBytes } from '@renderer/lib/thumbnail'
+import { saveProcessedLayerSrc } from '@renderer/lib/imageOps'
+import { downscaleImageBytes } from '@renderer/lib/thumbnail'
 import { mediaUrl } from '@shared/ipc'
 import ColorPicker from '@renderer/components/ColorPicker'
 import type { Layer } from '@shared/types'
@@ -174,27 +174,7 @@ export default function Inspector(): JSX.Element | null {
     tag: string
   ): Promise<void> {
     if (!layer || !brandId) return
-    const blob = new Blob([out as BlobPart], { type: 'image/png' })
-    const thumb = await makeImageThumbnail(blob)
-    const asset = await window.api.assets.import({
-      brandId,
-      folder: 'Images',
-      name: `${layer.name}-${suffix}.png`,
-      mime: 'image/png',
-      bytes: out,
-      width: thumb?.width ?? null,
-      height: thumb?.height ?? null,
-      thumbBytes: thumb?.bytes ?? null,
-      tags: [tag]
-    })
-    // Force a distinct undo checkpoint so Ctrl+Z steps back through each AI
-    // operation all the way to the original image (the 300ms history throttle
-    // would otherwise risk coalescing it away).
-    checkpointHistory()
-    updateLayer(layer.id, { src: asset.filePath })
-    // NOTE: the superseded generated asset is intentionally NOT deleted here —
-    // Ctrl+Z must be able to restore the previous src. Orphaned generated
-    // assets are reclaimed by the "Clean unused" action in the Assets page.
+    await saveProcessedLayerSrc(layer, brandId, out, suffix, tag, updateLayer)
   }
 
   async function matchPalette(): Promise<void> {

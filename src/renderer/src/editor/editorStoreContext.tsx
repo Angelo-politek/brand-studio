@@ -34,6 +34,8 @@ export interface SharedEditorState {
   setSelection: (ids: string[]) => void
   groupSelected: () => void
   ungroupSelected: () => void
+  copySelected: () => void
+  paste: () => void
   setCropMode: (id: string | null) => void
   setZoom: (zoom: number) => void
   setPan: (pan: { x: number; y: number }) => void

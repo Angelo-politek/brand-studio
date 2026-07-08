@@ -126,8 +126,9 @@ describe('editor store — layer operations', () => {
     useEditorStore.getState().setSelection([a.id])
     useEditorStore.getState().alignSelected('left', 'canvas')
     const out = useEditorStore.getState().layers.find((l) => l.id === a.id)!
-    // The VISUAL left edge (x - height when rotated 90°) sits at 0.
-    expect(layerAabb(out).x).toBeCloseTo(0, 5)
+    // Align-left targets the SAFE ZONE (5% inset), so the visual left edge sits
+    // at 5% of the 1080 canvas = 54, not the raw sheet edge.
+    expect(layerAabb(out).x).toBeCloseTo(54, 5)
   })
 
   it('coalesceHistory records the first write of a burst only', () => {

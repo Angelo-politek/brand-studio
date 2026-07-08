@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Konva from 'konva'
-import { Stage, Layer, Group, Rect, Line, Transformer } from 'react-konva'
+import { Stage, Layer, Group, Rect, Line, Text, Transformer } from 'react-konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import { useEditorStoreApi } from './editorStoreContext'
 import LayerNode from './LayerNode'
@@ -11,89 +11,15 @@ import { setFitFn } from './fitRef'
 import ContextMenu from './ContextMenu'
 import CropOverlay from './CropOverlay'
 import { createImageLayer } from './factory'
+import {
+  computeSmartSnap,
+  type AlignGuide,
+  type SpacingGuide,
+  type Box
+} from '@renderer/lib/smartGuides'
 import type { Layer as LayerModel } from '@shared/types'
 
 const SNAP_THRESHOLD = 8
-
-interface Guide {
-  type: 'x' | 'y'
-  pos: number
-}
-
-function computeSnap(
-  draggingId: string,
-  nx: number,
-  ny: number,
-  draggingLayer: LayerModel,
-  allLayers: LayerModel[],
-  canvas: { width: number; height: number },
-  userGuides: { x: number[]; y: number[] } = { x: [], y: [] }
-): { x: number; y: number; guides: Guide[] } {
-  const dw = draggingLayer.width * draggingLayer.scaleX
-  const dh = draggingLayer.height * draggingLayer.scaleY
-
-  // X snap points for the dragging layer (left, center, right)
-  const dLeft = nx
-  const dCX = nx + dw / 2
-  const dRight = nx + dw
-
-  // Y snap points
-  const dTop = ny
-  const dCY = ny + dh / 2
-  const dBottom = ny + dh
-
-  // Collect target snap lines from canvas + user guides + other layers
-  const xTargets: number[] = [0, canvas.width / 2, canvas.width, ...userGuides.x]
-  const yTargets: number[] = [0, canvas.height / 2, canvas.height, ...userGuides.y]
-
-  for (const l of allLayers) {
-    if (l.id === draggingId) continue
-    const lw = l.width * l.scaleX
-    const lh = l.height * l.scaleY
-    xTargets.push(l.x, l.x + lw / 2, l.x + lw)
-    yTargets.push(l.y, l.y + lh / 2, l.y + lh)
-  }
-
-  let finalX = nx
-  let finalY = ny
-  const guides: Guide[] = []
-
-  // Snap X
-  const xCandidates: { src: number; offset: number; target: number }[] = [
-    { src: dLeft, offset: 0, target: 0 },
-    { src: dCX, offset: dw / 2, target: 0 },
-    { src: dRight, offset: dw, target: 0 }
-  ]
-  for (const { src, offset } of xCandidates) {
-    for (const t of xTargets) {
-      if (Math.abs(src - t) < SNAP_THRESHOLD) {
-        finalX = t - offset
-        guides.push({ type: 'x', pos: t })
-        break
-      }
-    }
-    if (finalX !== nx) break
-  }
-
-  // Snap Y
-  const yCandidates: { src: number; offset: number }[] = [
-    { src: dTop, offset: 0 },
-    { src: dCY, offset: dh / 2 },
-    { src: dBottom, offset: dh }
-  ]
-  for (const { src, offset } of yCandidates) {
-    for (const t of yTargets) {
-      if (Math.abs(src - t) < SNAP_THRESHOLD) {
-        finalY = t - offset
-        guides.push({ type: 'y', pos: t })
-        break
-      }
-    }
-    if (finalY !== ny) break
-  }
-
-  return { x: finalX, y: finalY, guides }
-}
 
 const clamp = (v: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, v))
 
@@ -148,7 +74,8 @@ export default function EditorCanvas({
   const sizeRef = useRef({ w: 0, h: 0 })
   const fittedRef = useRef(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [snapGuides, setSnapGuides] = useState<Guide[]>([])
+  const [alignGuides, setAlignGuides] = useState<AlignGuide[]>([])
+  const [spacingGuides, setSpacingGuides] = useState<SpacingGuide[]>([])
   const [contextMenu, setContextMenu] = useState<{ layerId: string; x: number; y: number } | null>(
     null
   )
@@ -210,14 +137,39 @@ export default function EditorCanvas({
     (id: string, x: number, y: number): { x: number; y: number } | null => {
       const draggingLayer = layers.find((l) => l.id === id)
       if (!draggingLayer) return null
-      const result = computeSnap(id, x, y, draggingLayer, layers, canvas, guides)
-      setSnapGuides(result.guides)
+      const dw = draggingLayer.width * Math.abs(draggingLayer.scaleX)
+      const dh = draggingLayer.height * Math.abs(draggingLayer.scaleY)
+      const drag: Box = { id, x, y, w: dw, h: dh }
+      // Only align to UNLOCKED, visible siblings (skip the dragged one).
+      const others: Box[] = layers
+        .filter((l) => l.id !== id && l.visible)
+        .map((l) => ({
+          id: l.id,
+          x: l.x,
+          y: l.y,
+          w: l.width * Math.abs(l.scaleX),
+          h: l.height * Math.abs(l.scaleY)
+        }))
+      const result = computeSmartSnap(drag, others, {
+        threshold: SNAP_THRESHOLD,
+        canvasW: canvas.width,
+        canvasH: canvas.height,
+        safeInsetX: canvas.width * 0.05,
+        safeInsetY: canvas.height * 0.05,
+        userGuidesX: guides?.x ?? [],
+        userGuidesY: guides?.y ?? []
+      })
+      setAlignGuides(result.alignGuides)
+      setSpacingGuides(result.spacingGuides)
       return { x: result.x, y: result.y }
     },
     [layers, canvas, guides]
   )
 
-  const handleDragEnd = useCallback(() => setSnapGuides([]), [])
+  const handleDragEnd = useCallback(() => {
+    setAlignGuides([])
+    setSpacingGuides([])
+  }, [])
 
   const editingLayer = layers.find((l) => l.id === editingId) ?? null
   const cropLayer =
@@ -666,30 +618,64 @@ export default function EditorCanvas({
             />
           ))}
 
-          {/* Snap guide lines */}
-          {snapGuides.map((g, i) =>
-            g.type === 'x' ? (
-              <Line
-                key={`gx${i}`}
-                points={[g.pos, 0, g.pos, canvas.height]}
-                stroke="#3b82f6"
-                strokeWidth={1}
-                dash={[6, 4]}
-                listening={false}
-                opacity={0.8}
-              />
-            ) : (
-              <Line
-                key={`gy${i}`}
-                points={[0, g.pos, canvas.width, g.pos]}
-                stroke="#3b82f6"
-                strokeWidth={1}
-                dash={[6, 4]}
-                listening={false}
-                opacity={0.8}
-              />
+          {/* Smart alignment guides — local lines to the nearest target only */}
+          {alignGuides.map((g, i) => (
+            <Line
+              key={`ag${i}`}
+              points={
+                g.axis === 'x' ? [g.pos, g.from, g.pos, g.to] : [g.from, g.pos, g.to, g.pos]
+              }
+              stroke="#f43f7e"
+              strokeWidth={1 / zoom}
+              listening={false}
+            />
+          ))}
+
+          {/* Spacing (equal-distance) guides with a measured gap label */}
+          {spacingGuides.map((sp, i) => {
+            const tick = 6 / zoom
+            const midAxis = (sp.start + sp.end) / 2
+            return (
+              <Group key={`sp${i}`} listening={false}>
+                <Line
+                  points={
+                    sp.axis === 'x'
+                      ? [sp.start, sp.cross, sp.end, sp.cross]
+                      : [sp.cross, sp.start, sp.cross, sp.end]
+                  }
+                  stroke="#f43f7e"
+                  strokeWidth={1 / zoom}
+                />
+                {/* End caps */}
+                <Line
+                  points={
+                    sp.axis === 'x'
+                      ? [sp.start, sp.cross - tick, sp.start, sp.cross + tick]
+                      : [sp.cross - tick, sp.start, sp.cross + tick, sp.start]
+                  }
+                  stroke="#f43f7e"
+                  strokeWidth={1 / zoom}
+                />
+                <Line
+                  points={
+                    sp.axis === 'x'
+                      ? [sp.end, sp.cross - tick, sp.end, sp.cross + tick]
+                      : [sp.cross - tick, sp.end, sp.cross + tick, sp.end]
+                  }
+                  stroke="#f43f7e"
+                  strokeWidth={1 / zoom}
+                />
+                <Text
+                  x={sp.axis === 'x' ? midAxis - 14 / zoom : sp.cross + 4 / zoom}
+                  y={sp.axis === 'x' ? sp.cross - 16 / zoom : midAxis - 6 / zoom}
+                  text={`${Math.round(sp.gap)}`}
+                  fontSize={11 / zoom}
+                  fill="#f43f7e"
+                  fontStyle="bold"
+                />
+              </Group>
             )
-          )}
+          })}
 
           {showSafe && (
             <Rect

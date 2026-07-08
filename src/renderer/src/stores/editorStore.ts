@@ -428,10 +428,16 @@ export const useEditorStore = create<EditorState>()(
           // Rotation-aware boxes: align what the user SEES, not the unrotated frame.
           const bbs = new Map(sel.map((l) => [l.id, layerAabb(l)]))
           const boxes = [...bbs.values()]
-          const refL = ref === 'canvas' ? 0 : Math.min(...boxes.map((b) => b.x))
-          const refR = ref === 'canvas' ? s.canvas.width : Math.max(...boxes.map((b) => b.x + b.w))
-          const refT = ref === 'canvas' ? 0 : Math.min(...boxes.map((b) => b.y))
-          const refB = ref === 'canvas' ? s.canvas.height : Math.max(...boxes.map((b) => b.y + b.h))
+          // Align to the SAFE ZONE (5% inset) rather than the raw sheet edge, so
+          // aligned objects never touch the margin.
+          const insetX = s.canvas.width * 0.05
+          const insetY = s.canvas.height * 0.05
+          const refL = ref === 'canvas' ? insetX : Math.min(...boxes.map((b) => b.x))
+          const refR =
+            ref === 'canvas' ? s.canvas.width - insetX : Math.max(...boxes.map((b) => b.x + b.w))
+          const refT = ref === 'canvas' ? insetY : Math.min(...boxes.map((b) => b.y))
+          const refB =
+            ref === 'canvas' ? s.canvas.height - insetY : Math.max(...boxes.map((b) => b.y + b.h))
           const refCX = (refL + refR) / 2
           const refCY = (refT + refB) / 2
           const layers = s.layers.map((l) => {

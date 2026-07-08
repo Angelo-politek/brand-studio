@@ -194,6 +194,7 @@ function ImageNode({
 }): JSX.Element | null {
   const { img, error } = useImageWithStatus(layer.src ? mediaUrl(layer.src) : undefined)
   const ref = useRef<Konva.Image>(null)
+  const tintRef = useRef<Konva.Group>(null)
   const f = layer.filters ?? {}
   const co = layer.colorOverlay
 
@@ -225,6 +226,19 @@ function ImageNode({
     layer.height,
     layer.crop
   ])
+
+  // Cache the tint group so its destination-in alpha mask composites in an
+  // isolated buffer (otherwise it would erase the base image beneath it).
+  useEffect(() => {
+    const g = tintRef.current
+    if (g && img && co && co.opacity > 0) {
+      g.cache()
+      g.getLayer()?.batchDraw()
+    } else if (g) {
+      g.clearCache()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [img, co?.hex, co?.opacity, co?.blendMode, layer.width, layer.height, layer.crop])
 
   // Missing/corrupt file: render a visible placeholder instead of vanishing,
   // so the layer stays selectable and the user can fix or delete it.
@@ -327,14 +341,30 @@ function ImageNode({
           temperature={f.temperature ?? 0}
         />
         {co && co.opacity > 0 && (
-          <Rect
-            width={layer.width}
-            height={layer.height}
-            fill={co.hex}
-            opacity={co.opacity}
-            globalCompositeOperation={co.blendMode === 'color' ? 'color' : co.blendMode}
-            listening={false}
-          />
+          // Tint clamped to the image silhouette: draw the color with the
+          // chosen blend mode, then re-apply the image's alpha with
+          // destination-in so transparent (background-removed) areas stay clear.
+          // Cached (see effect above) so the mask composites in isolation.
+          <Group ref={tintRef}>
+            <Rect
+              width={layer.width}
+              height={layer.height}
+              fill={co.hex}
+              opacity={co.opacity}
+              globalCompositeOperation={
+                co.blendMode === 'color' ? 'color' : (co.blendMode as GlobalCompositeOperation)
+              }
+              listening={false}
+            />
+            <KonvaImage
+              image={img}
+              width={layer.width}
+              height={layer.height}
+              crop={layer.crop ?? undefined}
+              globalCompositeOperation="destination-in"
+              listening={false}
+            />
+          </Group>
         )}
       </Group>
       {/* Border follows the same rounded/circular outline as the clip. */}

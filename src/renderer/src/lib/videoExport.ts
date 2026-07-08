@@ -196,11 +196,14 @@ async function addLayerNode(
 
       const co = layer.colorOverlay
       if (co && co.opacity > 0) {
-        // Wrap image + tint overlay in a Group so the tint composites over it.
         const group = new Konva.Group(common)
         imgNode.setAttrs({ x: 0, y: 0, rotation: 0, scaleX: 1, scaleY: 1, opacity: 1 })
         group.add(imgNode)
-        group.add(
+        // Tint clamped to the image's opaque pixels: color (with blend mode)
+        // masked by a destination-in copy of the image, in a cached sub-group
+        // so the mask composites in isolation and the background stays clear.
+        const tint = new Konva.Group()
+        tint.add(
           new Konva.Rect({
             width: layer.width,
             height: layer.height,
@@ -210,6 +213,17 @@ async function addLayerNode(
               co.blendMode === 'color' ? 'color' : (co.blendMode as GlobalCompositeOperation)
           })
         )
+        tint.add(
+          new Konva.Image({
+            image: img,
+            width: layer.width,
+            height: layer.height,
+            crop: layer.crop ?? undefined,
+            globalCompositeOperation: 'destination-in'
+          })
+        )
+        tint.cache()
+        group.add(tint)
         konvaLayer.add(group)
       } else {
         konvaLayer.add(imgNode)

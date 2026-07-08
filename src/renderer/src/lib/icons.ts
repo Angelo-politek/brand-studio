@@ -220,8 +220,17 @@ export async function iconToImage(
   const url = `data:image/svg+xml;utf8,${encodeURIComponent(colored)}`
   const img = await new Promise<HTMLImageElement | null>((resolve) => {
     const el = new Image()
-    el.onload = () => resolve(el)
-    el.onerror = () => resolve(null)
+    // A malformed SVG data-URL may fire neither onload nor onerror; time out
+    // so callers (e.g. the video export loop) can't hang forever.
+    const timer = setTimeout(() => resolve(null), 8000)
+    el.onload = () => {
+      clearTimeout(timer)
+      resolve(el)
+    }
+    el.onerror = () => {
+      clearTimeout(timer)
+      resolve(null)
+    }
     el.src = url
   })
   if (img) imgCache.set(key, img)

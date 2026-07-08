@@ -32,13 +32,24 @@ function fillFor(layer: Layer, centered = false): Record<string, unknown> {
   return { ...(centered ? offsetGradient(g, -layer.width / 2, -layer.height / 2) : g) }
 }
 
-/** Load an image element (CORS-safe) for export rendering. */
-function loadImage(url: string): Promise<HTMLImageElement> {
+/**
+ * Load an image element (CORS-safe) for export rendering. Rejects on error AND
+ * on a timeout, so a single unreachable/slow asset can never hang the whole
+ * export forever (previously this could stall silently with no error).
+ */
+function loadImage(url: string, timeoutMs = 15000): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image()
     img.crossOrigin = 'anonymous'
-    img.onload = () => resolve(img)
-    img.onerror = reject
+    const timer = setTimeout(() => reject(new Error(`image load timed out: ${url}`)), timeoutMs)
+    img.onload = () => {
+      clearTimeout(timer)
+      resolve(img)
+    }
+    img.onerror = () => {
+      clearTimeout(timer)
+      reject(new Error(`image failed to load: ${url}`))
+    }
     img.src = url
   })
 }
@@ -355,7 +366,15 @@ export async function renderSceneOverlayPng(
   stage.add(layer)
 
   try {
-    for (const l of visible) await addLayerNode(layer, l)
+    for (const l of visible) {
+      try {
+        await addLayerNode(layer, l)
+      } catch (e) {
+        // One bad layer (unreachable image/icon) must not sink the whole
+        // export — skip it and keep going.
+        console.warn('[video export] skipped a layer:', l.type, l.id, e)
+      }
+    }
     layer.draw()
     // Decode directly: fetch(dataUrl) is blocked by the CSP connect-src.
     return dataUrlToBytes(stage.toDataURL({ pixelRatio: 1, mimeType: 'image/png' }))
@@ -413,7 +432,11 @@ export async function renderSceneOverlayFrames(
       const tMs = (i / fps) * 1000
       layer.destroyChildren()
       for (const l of visible) {
-        await addLayerNode(layer, animateLayer(l, tMs, scene.durationMs), imageCache)
+        try {
+          await addLayerNode(layer, animateLayer(l, tMs, scene.durationMs), imageCache)
+        } catch (e) {
+          console.warn('[video export] skipped a layer in frame', i, ':', l.type, l.id, e)
+        }
       }
       layer.draw()
       // Decode directly: fetch(dataUrl) is blocked by the CSP connect-src.

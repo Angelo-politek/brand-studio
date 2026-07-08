@@ -315,11 +315,14 @@ export default function VideoEditor(): JSX.Element {
       const workSub = `cache/video-export/${exportId}`
       const workDir = `${root}/${workSub}`
 
-      // Overlay frames at output fps, so animations are as smooth as the video.
-      const OVERLAY_FPS = 30
+      // 20 fps overlays: smooth enough for text/motion, ~1/3 fewer frames to
+      // rasterize + write than 30 fps (the earlier value made long animated
+      // reels feel stuck because rasterization is the slow part).
+      const OVERLAY_FPS = 20
 
       // Rasterize overlays scene by scene, streaming animated frames straight
-      // to disk (memory stays flat) — this phase is 0..30% of the bar.
+      // to disk (memory stays flat) — this phase is 0..30% of the bar, updated
+      // per-frame so the user sees continuous progress, not a frozen bar.
       const totalDur = vp.scenes.reduce((a, s) => a + s.durationMs, 0) || 1
       let doneDur = 0
       const scenes: ExportScene[] = []
@@ -327,8 +330,10 @@ export default function VideoEditor(): JSX.Element {
         if (exportCancelled.current) throw CANCELLED
         let overlayPath: string | null = null
         let framesDir: string | null = null
+        setExportStage(`Rendering scene ${i + 1}/${vp.scenes.length}…`)
         if (sceneHasAnimation(s)) {
           const sub = `${workSub}/scene_${i}`
+          const frameTotal = Math.max(1, Math.round((s.durationMs / 1000) * OVERLAY_FPS))
           await renderSceneOverlayFrames(s, vp.width, vp.height, OVERLAY_FPS, async (bytes, j) => {
             if (exportCancelled.current) throw CANCELLED
             await window.api.app.saveBinaryNamed({
@@ -336,6 +341,9 @@ export default function VideoEditor(): JSX.Element {
               filename: `f_${String(j).padStart(5, '0')}.png`,
               bytes
             })
+            // Per-frame progress within this scene's slice of the 0..30% band.
+            const sceneFrac = (j + 1) / frameTotal
+            setExportProgress(Math.round(((doneDur + s.durationMs * sceneFrac) / totalDur) * 30))
           })
           framesDir = `${workDir}/scene_${i}`
         } else {
@@ -387,6 +395,9 @@ export default function VideoEditor(): JSX.Element {
           }
         : null
 
+      console.info('[video export] overlays rasterized, starting backend job…', {
+        scenes: scenes.length
+      })
       const jobId = await startVideoExport({
         outputPath,
         width: vp.width,
@@ -396,14 +407,19 @@ export default function VideoEditor(): JSX.Element {
         audio,
         workDir
       })
+      console.info('[video export] job id:', jobId)
       if (!jobId) {
         toast('Processing backend offline — restart the app.', 'error')
         return
       }
       exportJobId.current = jobId
 
-      // Poll the job: backend work is 30..100% of the bar.
+      // Poll the job: backend work is 30..100% of the bar. Guard against a
+      // stuck job (no progress for a long time) so the UI never hangs forever.
+      let lastProgress = -1
+      let stalledPolls = 0
       for (;;) {
+        if (exportCancelled.current) break
         await new Promise((r) => setTimeout(r, 500))
         const st = await getVideoJob(jobId)
         setExportProgress(30 + Math.round(st.progress * 70))
@@ -420,13 +436,21 @@ export default function VideoEditor(): JSX.Element {
         if (st.state === 'error') {
           throw new Error(st.error ?? 'export failed')
         }
+        // 120 polls (~60s) with zero progress → treat as stuck.
+        if (st.progress === lastProgress) stalledPolls++
+        else stalledPolls = 0
+        lastProgress = st.progress
+        if (stalledPolls > 120) {
+          throw new Error('export stalled (no progress) — check the export log')
+        }
       }
     } catch (err) {
       if (err instanceof Error && err.message === '__cancelled__') {
         toast('Export cancelled')
       } else {
         const msg = err instanceof Error ? err.message : String(err)
-        console.error('[video export] failed:', err)
+        // Full detail to the console so the failing phase is identifiable.
+        console.error('[video export] failed:', err, (err as Error)?.stack)
         toast(`Export failed: ${msg}`, 'error')
       }
     } finally {

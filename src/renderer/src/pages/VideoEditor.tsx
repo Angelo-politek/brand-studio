@@ -233,18 +233,12 @@ export default function VideoEditor(): JSX.Element {
         cur.setPlayhead(0)
         return
       }
-      const sceneChanged = pos.sceneId !== cur.activeSceneId
-      if (sceneChanged) {
-        cur.setActiveScene(pos.sceneId)
-        // Re-align the music to the new global position at each scene boundary
-        // so it can't drift, without ever gating the visuals on the audio.
-        const a = musicRef.current
-        if (a && cur.audio) {
-          const target = (cur.audio.inMs + globalMs) / 1000
-          if (Math.abs(a.currentTime - target) > 0.25) a.currentTime = target
-        }
-      }
+      if (pos.sceneId !== cur.activeSceneId) cur.setActiveScene(pos.sceneId)
       cur.setPlayhead(pos.localMs)
+      // NOTE: the music plays FREELY after the initial seek at play-start; it is
+      // never re-seeked here. Re-seeking mid-playback made the track jump back
+      // to its start on every scene change. The seek happens once, in the
+      // play/pause effect, and small drift over a short reel is inaudible.
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)

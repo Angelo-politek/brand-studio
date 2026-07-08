@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { X, Upload, Loader2 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { X, Upload, Loader2, Play, Pause } from 'lucide-react'
 import { useCurrentBrand } from '@renderer/stores/brandStore'
 import { useAssetStore } from '@renderer/stores/assetStore'
 import { pickFiles } from '@renderer/lib/files'
@@ -50,6 +50,32 @@ export default function AssetPickerDialog({
 
   const isAudio = folder === 'Audio'
 
+  // Audio audition: one shared <audio>, toggled per row.
+  const previewRef = useRef<HTMLAudioElement | null>(null)
+  const [previewId, setPreviewId] = useState<string | null>(null)
+  function togglePreview(a: Asset): void {
+    let el = previewRef.current
+    if (!el) {
+      el = new Audio()
+      el.onended = () => setPreviewId(null)
+      previewRef.current = el
+    }
+    if (previewId === a.id) {
+      el.pause()
+      setPreviewId(null)
+      return
+    }
+    el.src = mediaUrl(a.filePath)
+    void el.play().catch(() => {})
+    setPreviewId(a.id)
+  }
+  useEffect(
+    () => () => {
+      previewRef.current?.pause()
+    },
+    []
+  )
+
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-6" onClick={onClose}>
       <div
@@ -88,8 +114,17 @@ export default function AssetPickerDialog({
                   title={a.name}
                 >
                   {isAudio ? (
-                    <div className="h-16 w-full grid place-items-center bg-surface-3 rounded text-ink-faint text-xs">
-                      ♪
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        togglePreview(a)
+                      }}
+                      className="h-16 w-full grid place-items-center bg-surface-3 rounded text-ink-faint hover:text-accent"
+                      title={previewId === a.id ? 'Ferma anteprima' : 'Ascolta anteprima'}
+                    >
+                      {previewId === a.id ? <Pause size={20} /> : <Play size={20} />}
                     </div>
                   ) : a.thumbPath ? (
                     <img

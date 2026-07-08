@@ -10,8 +10,11 @@ import {
   type BeatAnalysis
 } from '@renderer/lib/beatDetect'
 import { pagesToScenes, type ReelFit, type ReelIntensity } from '@renderer/lib/designToReel'
+import { useAssetStore } from '@renderer/stores/assetStore'
+import { pickFiles } from '@renderer/lib/files'
 import { mediaUrl } from '@shared/ipc'
 import { cn } from '@renderer/lib/cn'
+import { Upload } from 'lucide-react'
 import { toast } from '@renderer/stores/uiStore'
 import type { Asset, Page } from '@shared/types'
 
@@ -115,6 +118,25 @@ export default function ConvertToReelDialog({ onClose }: { onClose: () => void }
     setTrackId(id)
     const asset = tracks.find((t) => t.id === id)
     if (asset) void analyze(asset)
+  }
+
+  const importPaths = useAssetStore((s) => s.importPaths)
+  const importing = useAssetStore((s) => s.importing)
+
+  // Upload a new audio file, add it to the Audio library, then select + analyze.
+  async function uploadTrack(): Promise<void> {
+    if (!brandId) return
+    const paths = await pickFiles([{ name: 'Audio', extensions: ['mp3', 'wav', 'm4a', 'ogg', 'aac', 'flac'] }], false)
+    if (paths.length === 0) return
+    const prevFolder = useAssetStore.getState().folder
+    useAssetStore.setState({ folder: 'Audio' })
+    await importPaths(brandId, paths)
+    useAssetStore.setState({ folder: prevFolder })
+    const list = await window.api.assets.list({ brandId, folder: 'Audio' })
+    setTracks(list)
+    // Select the most recently added track (the upload we just made).
+    const added = [...list].sort((a, b) => b.createdAt - a.createdAt)[0]
+    if (added) pickTrack(added.id)
   }
 
   const target = FORMAT_OPTIONS.find((f) => f.value === format)?.size ?? null
@@ -243,12 +265,27 @@ export default function ConvertToReelDialog({ onClose }: { onClose: () => void }
 
           {/* Music */}
           <div>
-            <div className="text-xs text-ink-faint mb-2 flex items-center gap-1">
-              <Music size={12} /> Musica
+            <div className="text-xs text-ink-faint mb-2 flex items-center justify-between">
+              <span className="flex items-center gap-1">
+                <Music size={12} /> Musica
+              </span>
+              <button
+                onClick={() => void uploadTrack()}
+                disabled={importing || !brandId}
+                className="btn-surface text-[11px] px-2 py-1 disabled:opacity-50"
+                title="Carica un nuovo file audio"
+              >
+                {importing ? (
+                  <Loader2 size={11} className="animate-spin" />
+                ) : (
+                  <Upload size={11} />
+                )}
+                Carica…
+              </button>
             </div>
             {tracks.length === 0 ? (
               <p className="text-[11px] text-ink-faint">
-                Nessuna traccia audio. Caricane una negli Asset (cartella Audio).
+                Nessuna traccia audio. Usa “Carica…” per aggiungerne una.
               </p>
             ) : (
               <select

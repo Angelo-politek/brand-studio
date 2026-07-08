@@ -213,7 +213,6 @@ export default function VideoEditor(): JSX.Element {
     let globalMs =
       startState.scenes.slice(0, startIdx).reduce((sum, s) => sum + s.durationMs, 0) +
       startState.playheadMs
-    const startedAt = last
 
     const tick = (t: number): void => {
       const dt = t - last
@@ -221,19 +220,11 @@ export default function VideoEditor(): JSX.Element {
       const cur = store.getState()
       if (cur.scenes.length === 0) return
 
+      // The wall clock is the SINGLE source of truth for the visuals — it can
+      // never stall. (Music is kept in sync separately: it's seeked at scene
+      // changes below, never used to drive the visual clock, which previously
+      // could freeze the visuals if the audio element misbehaved.)
       globalMs += dt
-
-      // Keep visuals and music locked: if the audio has drifted more than
-      // ~180ms from the visuals, snap the visual clock to the audio (audio is
-      // the reference for large drifts only). Skip the first ~400ms so an
-      // in-flight seek at play-start doesn't yank the visuals.
-      const a = musicRef.current
-      if (a && cur.audio && !a.paused && a.readyState >= 3 && t - startedAt > 400) {
-        const audioGlobal = a.currentTime * 1000 - cur.audio.inMs
-        if (Math.abs(audioGlobal - globalMs) > 180) {
-          globalMs = Math.max(0, audioGlobal)
-        }
-      }
 
       const pos = locateOnTimeline(cur.scenes, globalMs)
       if (pos.atEnd) {
@@ -242,7 +233,17 @@ export default function VideoEditor(): JSX.Element {
         cur.setPlayhead(0)
         return
       }
-      if (pos.sceneId !== cur.activeSceneId) cur.setActiveScene(pos.sceneId)
+      const sceneChanged = pos.sceneId !== cur.activeSceneId
+      if (sceneChanged) {
+        cur.setActiveScene(pos.sceneId)
+        // Re-align the music to the new global position at each scene boundary
+        // so it can't drift, without ever gating the visuals on the audio.
+        const a = musicRef.current
+        if (a && cur.audio) {
+          const target = (cur.audio.inMs + globalMs) / 1000
+          if (Math.abs(a.currentTime - target) > 0.25) a.currentTime = target
+        }
+      }
       cur.setPlayhead(pos.localMs)
       raf = requestAnimationFrame(tick)
     }

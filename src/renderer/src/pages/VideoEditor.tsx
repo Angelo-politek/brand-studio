@@ -8,7 +8,8 @@ import {
   Download,
   Check,
   Loader2,
-  LayoutTemplate
+  LayoutTemplate,
+  FolderOpen
 } from 'lucide-react'
 import { useVideoEditorStore } from '@renderer/stores/videoEditorStore'
 import { useBrandStore } from '@renderer/stores/brandStore'
@@ -65,6 +66,8 @@ export default function VideoEditor(): JSX.Element {
   const [exporting, setExporting] = useState(false)
   const [exportProgress, setExportProgress] = useState(0)
   const [exportStage, setExportStage] = useState('')
+  // Relative path of the finished export, so we can show a "where is it" panel.
+  const [exportDone, setExportDone] = useState<string | null>(null)
   const [picker, setPicker] = useState<'video' | 'audio' | null>(null)
   const lastSaved = useRef('')
   const exportJobId = useRef<string | null>(null)
@@ -426,7 +429,7 @@ export default function VideoEditor(): JSX.Element {
         setExportStage(st.stage === 'audio' ? 'Mixing audio…' : `Encoding ${st.stage}…`)
         if (st.state === 'done') {
           toast('Video exported!', 'success')
-          await window.api.app.showInFolder(relPath)
+          setExportDone(relPath)
           break
         }
         if (st.state === 'cancelled') {
@@ -465,6 +468,26 @@ export default function VideoEditor(): JSX.Element {
     exportCancelled.current = true
     const id = exportJobId.current
     if (id) void cancelVideoJob(id)
+  }
+
+  /** Save a copy of the finished export to a user-chosen location. */
+  async function saveExportCopy(): Promise<void> {
+    if (!exportDone) return
+    const base = exportDone.split('/').pop() ?? 'reel.mp4'
+    const target = await window.api.app.saveFileDialog({
+      defaultPath: base,
+      filters: [{ name: 'MP4 video', extensions: ['mp4'] }]
+    })
+    if (!target) return
+    try {
+      const bytes = await window.api.app.readFile(
+        (await window.api.app.getPaths()).dataRoot + '\\' + exportDone.replace(/\//g, '\\')
+      )
+      await window.api.app.writeFileTo(target, bytes)
+      toast('Copy saved.', 'success')
+    } catch (e) {
+      toast(`Save failed: ${(e as Error).message}`, 'error')
+    }
   }
 
   async function handleSaveAsTemplate(): Promise<void> {
@@ -647,6 +670,45 @@ export default function VideoEditor(): JSX.Element {
             onPick={(a) => void onPickAudio(a)}
             onClose={() => setPicker(null)}
           />
+        )}
+
+        {/* Export-complete panel: the file lives in a hidden app folder, so
+            surface it with clear actions instead of a fleeting toast. */}
+        {exportDone && (
+          <div
+            className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-6"
+            onClick={() => setExportDone(null)}
+          >
+            <div className="card w-full max-w-md p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-2">
+                <Check size={18} className="text-green-400" />
+                <h2 className="font-semibold">Video exported</h2>
+              </div>
+              <p className="text-xs text-ink-faint">
+                Saved in the app’s exports folder. Use “Save copy…” to put it somewhere handy.
+              </p>
+              <p className="text-[11px] text-ink-muted font-mono break-all bg-surface-2 rounded p-2">
+                {exportDone.split('/').pop()}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => void window.api.app.openPath(exportDone)}
+                  className="btn-surface text-sm flex-1"
+                >
+                  <Play size={14} /> Open video
+                </button>
+                <button
+                  onClick={() => void window.api.app.showInFolder(exportDone)}
+                  className="btn-surface text-sm flex-1"
+                >
+                  <FolderOpen size={14} /> Show in folder
+                </button>
+              </div>
+              <button onClick={() => void saveExportCopy()} className="btn-primary w-full text-sm">
+                <Download size={14} /> Save copy…
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </EditorStoreProvider>

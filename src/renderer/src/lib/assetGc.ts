@@ -28,11 +28,22 @@ export function collectReferencedSrcs(blobs: unknown[]): Set<string> {
   return out
 }
 
-/** Generated assets whose file is not referenced by any provided blob. */
-export function findOrphanGeneratedAssets(assets: Asset[], referenced: Set<string>): Asset[] {
+/**
+ * Generated assets whose file is not referenced by any provided blob AND that
+ * are older than `minAgeMs` (default 24h). The age guard prevents deleting an
+ * asset that was just created for a project the user hasn't saved/closed yet —
+ * that would leave a live layer pointing at a missing file.
+ */
+export function findOrphanGeneratedAssets(
+  assets: Asset[],
+  referenced: Set<string>,
+  minAgeMs = 24 * 60 * 60 * 1000,
+  now = Date.now()
+): Asset[] {
   return assets.filter(
     (a) =>
       a.tags.some((t) => (GENERATED_TAGS as readonly string[]).includes(t)) &&
-      !referenced.has(a.filePath)
+      !referenced.has(a.filePath) &&
+      now - (a.createdAt ?? 0) > minAgeMs
   )
 }

@@ -48,6 +48,24 @@ app.include_router(thumbnail.router)
 app.include_router(video.router)
 
 
+@app.on_event("startup")
+async def _warm_models() -> None:
+    """Preload the default background-removal model in a background thread so the
+    first real request doesn't pay the ~2s ONNX session load. /health stays
+    responsive because this runs off the event loop."""
+    import threading
+
+    def _load() -> None:
+        try:
+            from routers.bg_remove import _get_session, DEFAULT_MODEL
+
+            _get_session(DEFAULT_MODEL)
+        except Exception:  # noqa: BLE001 — warm-up is best effort
+            pass
+
+    threading.Thread(target=_load, daemon=True).start()
+
+
 # Entry point for the PyInstaller-frozen sidecar: the packaged app runs the exe
 # directly (no uvicorn CLI), with the port injected via BS_PORT.
 if __name__ == "__main__":

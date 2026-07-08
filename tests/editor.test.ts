@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { useEditorStore, coalesceHistory, layerAabb } from '@renderer/stores/editorStore'
+import {
+  useEditorStore,
+  coalesceHistory,
+  checkpointHistory,
+  layerAabb
+} from '@renderer/stores/editorStore'
 import { createTextLayer, createShapeLayer } from '@renderer/editor/factory'
 import { extractVariables, applyVariables, cloneLayers } from '@renderer/lib/variables'
 import { presetByType, SIZE_PRESETS } from '@renderer/lib/presets'
@@ -135,6 +140,17 @@ describe('editor store — layer operations', () => {
     tick(500)
     wrapped(4)
     expect(recorded).toEqual([1, 4])
+  })
+
+  it('checkpointHistory forces the next write past the coalescing window', () => {
+    const recorded: number[] = []
+    const wrapped = coalesceHistory<number>(300)((v) => recorded.push(v))
+    tick()
+    wrapped(1) // recorded (window open)
+    wrapped(2) // coalesced away
+    checkpointHistory()
+    wrapped(3) // forced through despite being within the window
+    expect(recorded).toEqual([1, 3])
   })
 
   it('moves a layer to the top of the z-order', () => {

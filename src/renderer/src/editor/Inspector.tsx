@@ -16,6 +16,7 @@ import { useCurrentBrand } from '@renderer/stores/brandStore'
 import { removeBackground, recolorToPalette } from '@renderer/lib/python'
 import { usePythonStatus } from '@renderer/components/BackendStatus'
 import { toast } from '@renderer/stores/uiStore'
+import { checkpointHistory } from '@renderer/stores/editorStore'
 import { makeImageThumbnail, downscaleImageBytes } from '@renderer/lib/thumbnail'
 import { mediaUrl } from '@shared/ipc'
 import ColorPicker from '@renderer/components/ColorPicker'
@@ -186,6 +187,10 @@ export default function Inspector(): JSX.Element | null {
       thumbBytes: thumb?.bytes ?? null,
       tags: [tag]
     })
+    // Force a distinct undo checkpoint so Ctrl+Z steps back through each AI
+    // operation all the way to the original image (the 300ms history throttle
+    // would otherwise risk coalescing it away).
+    checkpointHistory()
     updateLayer(layer.id, { src: asset.filePath })
     // NOTE: the superseded generated asset is intentionally NOT deleted here —
     // Ctrl+Z must be able to restore the previous src. Orphaned generated
@@ -259,9 +264,9 @@ export default function Inspector(): JSX.Element | null {
     setBgBusy(true)
     try {
       const srcBytes = new Uint8Array(await (await fetch(mediaUrl(layer.src))).arrayBuffer())
-      // Huge photos make segmentation slow with no visible quality gain for
-      // social graphics: cap the long side before sending.
-      const capped = await downscaleImageBytes(srcBytes, 2000)
+      // The model segments at ~1024px internally, so anything larger is wasted
+      // upload + resize time. Cap the long side to keep it snappy on CPU.
+      const capped = await downscaleImageBytes(srcBytes, 1400)
       const out = await removeBackground(capped, `${layer.name}.png`, {
         human: bgHuman,
         softEdges: bgSoftEdges

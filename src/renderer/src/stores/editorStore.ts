@@ -160,11 +160,24 @@ function syncPages(
 
 const DEFAULT_CANVAS: CanvasSpec = { width: 1080, height: 1080, background: '#ffffff' }
 
+// Discrete, meaningful edits (remove-bg, palette match, apply-brand) set this
+// so the very next history write is NOT coalesced away — each becomes its own
+// undo step, so Ctrl+Z walks back through them to the original.
+let forceNextHistory = false
+
+/** Force the next store mutation to record a distinct undo checkpoint. */
+export function checkpointHistory(): void {
+  forceNextHistory = true
+}
+
 /**
  * Leading-edge throttle for zundo's history writes: a burst of set() calls
  * (slider drags, filter tweaks) records ONE entry — the state before the burst
  * — so a single Ctrl+Z reverts the whole gesture and the 100-entry stack isn't
  * flooded (which used to evict real edits and make undo look broken).
+ *
+ * `checkpointHistory()` bypasses the throttle for the next write so important
+ * one-shot operations always land as their own undo step.
  */
 export function coalesceHistory<T>(
   windowMs: number
@@ -173,7 +186,8 @@ export function coalesceHistory<T>(
     let last = 0
     return (state) => {
       const now = Date.now()
-      if (now - last > windowMs) {
+      if (forceNextHistory || now - last > windowMs) {
+        forceNextHistory = false
         last = now
         handle(state)
       }

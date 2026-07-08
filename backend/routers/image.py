@@ -153,8 +153,23 @@ async def recolor(file: UploadFile = File(...), colors: str = Form(...), k: int 
         raise HTTPException(status_code=400, detail="no palette colours")
     palette_arr = np.array(palette, np.float32)
 
+    flat = rgb.reshape(-1, 3)
+    # Only cluster/recolor OPAQUE pixels — a transparent (background-removed)
+    # area must stay untouched, and its arbitrary RGB values must not pollute
+    # the KMeans clusters (which used to bleed the removed background's color).
+    if alpha is not None:
+        opaque_mask = alpha.reshape(-1) > 8
+    else:
+        opaque_mask = np.ones(flat.shape[0], dtype=bool)
+
+    z = flat[opaque_mask].astype(np.float32)
+    if z.shape[0] < 2:
+        # Nothing opaque to recolor — return the input unchanged.
+        ok, buf = cv2.imencode(".png", cv2.imdecode(raw, cv2.IMREAD_UNCHANGED))
+        return Response(content=buf.tobytes(), media_type="image/png")
+
     kk = k if k > 0 else max(2, min(len(palette) * 2, 8))
-    z = rgb.reshape(-1, 3).astype(np.float32)
+    kk = min(kk, z.shape[0])
     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 20, 1.0)
     _, labels, centers = cv2.kmeans(z, kk, None, criteria, 3, cv2.KMEANS_PP_CENTERS)
 
@@ -168,7 +183,11 @@ async def recolor(file: UploadFile = File(...), colors: str = Form(...), k: int 
         d = np.linalg.norm(palette_lab - centers_lab[i], axis=1)
         mapped[i] = palette_arr[int(np.argmin(d))]
 
-    out = mapped[labels.flatten()].reshape(h, w, 3)
+    # Write recolored values back only into the opaque positions.
+    out_flat = flat.copy()
+    out_flat[opaque_mask] = mapped[labels.flatten()]
+    out = out_flat.reshape(h, w, 3)
+
     out_bgr = cv2.cvtColor(out, cv2.COLOR_RGB2BGR)
     if alpha is not None:
         out_bgr = cv2.cvtColor(out_bgr, cv2.COLOR_BGR2BGRA)

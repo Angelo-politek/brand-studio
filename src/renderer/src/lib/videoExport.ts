@@ -356,6 +356,10 @@ export async function renderSceneOverlayPng(
   const visible = scene.layers.filter((l) => l.visible)
   if (visible.length === 0) return null
 
+  // Canvas text does not lazily trigger @font-face loads: rasterizing before
+  // the faces resolve would bake a fallback font into the exported video.
+  await document.fonts.ready
+
   const container = document.createElement('div')
   container.style.position = 'fixed'
   container.style.left = '-99999px'
@@ -412,6 +416,9 @@ export async function renderSceneOverlayFrames(
 ): Promise<Uint8Array[]> {
   const visible = scene.layers.filter((l) => l.visible)
   if (visible.length === 0) return []
+
+  // See renderSceneOverlayPng: fonts must be resolved before canvas text.
+  await document.fonts.ready
 
   const container = document.createElement('div')
   container.style.position = 'fixed'

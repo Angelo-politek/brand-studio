@@ -81,7 +81,11 @@ function findFreePort(): Promise<number> {
   })
 }
 
-async function waitHealthy(p: number, timeoutMs = 40000): Promise<boolean> {
+// 90s: the frozen PyInstaller sidecar is a few hundred MB on disk and, on a
+// mechanical drive / cold cache, extracting it plus loading the ~178MB ONNX
+// background-removal model can comfortably take over a minute before the
+// first /health response — 40s was cutting that close on real hardware.
+async function waitHealthy(p: number, timeoutMs = 90000): Promise<boolean> {
   const start = Date.now()
   while (Date.now() - start < timeoutMs) {
     try {
@@ -113,7 +117,7 @@ async function spawnSidecar(dir: string): Promise<void> {
   // Inherited from a mis-launched Electron this would make any child Electron
   // process boot as plain Node; it must never reach the sidecar's children.
   delete env.ELECTRON_RUN_AS_NODE
-  setStatus('starting', 'Avvio del servizio…')
+  setStatus('starting', 'Starting the service…')
   const frozen = frozenSidecarPath(dir)
   proc = frozen
     ? spawn(frozen, [], { cwd: dir, env, windowsHide: true })
@@ -142,7 +146,7 @@ async function spawnSidecar(dir: string): Promise<void> {
     setStatus('ready')
     console.log(`[python] sidecar healthy on port ${port}`)
   } else {
-    setStatus('down', 'Il servizio non è diventato disponibile')
+    setStatus('down', 'The service did not become available in time')
     console.warn('[python] sidecar did not become healthy in time')
   }
 }
@@ -150,19 +154,46 @@ async function spawnSidecar(dir: string): Promise<void> {
 /** Restart the sidecar with exponential backoff after an unexpected exit. */
 function onUnexpectedExit(): void {
   if (restartAttempts >= MAX_RESTARTS) {
-    setStatus('down', 'Il servizio è stato riavviato troppe volte')
+    setStatus('down', 'The service was restarted too many times and gave up')
     console.warn('[python] giving up after', MAX_RESTARTS, 'restart attempts')
     return
   }
   const delay = 1000 * 2 ** restartAttempts
   restartAttempts++
-  setStatus('starting', `Riavvio del servizio (tentativo ${restartAttempts})…`)
+  setStatus('starting', `Restarting the service (attempt ${restartAttempts})…`)
   setTimeout(() => {
     if (shuttingDown) return
     void spawnSidecar(backendDir()).catch((err) =>
       console.warn('[python] restart failed:', (err as Error).message)
     )
   }, delay)
+}
+
+/**
+ * Manually restart the sidecar on user request (e.g. a "Restart" button in
+ * Settings), resetting the auto-restart counter so it gets a full fresh set
+ * of automatic retries afterwards. Safe to call whether the sidecar is
+ * currently up, down, or has given up after MAX_RESTARTS.
+ */
+export async function restartPython(): Promise<void> {
+  if (shuttingDown) return
+  restartAttempts = 0
+  if (proc) {
+    try {
+      proc.kill()
+    } catch {
+      /* ignore */
+    }
+    proc = null
+  }
+  healthy = false
+  try {
+    await spawnSidecar(backendDir())
+  } catch (err) {
+    healthy = false
+    setStatus('down', (err as Error).message)
+    console.warn('[python] manual restart failed:', (err as Error).message)
+  }
 }
 
 /**
@@ -175,7 +206,7 @@ export async function startPython(): Promise<void> {
   const frozen = frozenSidecarPath(dir)
   if (!frozen && !existsSync(join(dir, 'main.py'))) {
     console.warn('[python] backend/main.py not found — sidecar disabled')
-    setStatus('unavailable', 'Backend non trovato')
+    setStatus('unavailable', 'Backend not found')
     return
   }
   try {

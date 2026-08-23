@@ -22,7 +22,11 @@ const api: Api = {
     readFile: (absPath) => ipcRenderer.invoke(IPC.appReadFile, absPath),
     openPath: (relativePath) => ipcRenderer.invoke(IPC.appOpenPath, relativePath),
     showInFolder: (relativePath) => ipcRenderer.invoke(IPC.appShowInFolder, relativePath),
-    deleteFile: (relativePath) => ipcRenderer.invoke(IPC.appDeleteFile, relativePath)
+    deleteFile: (relativePath) => ipcRenderer.invoke(IPC.appDeleteFile, relativePath),
+    getVersion: () => ipcRenderer.invoke(IPC.appGetVersion),
+    openDataFolder: () => ipcRenderer.invoke(IPC.appOpenDataFolder),
+    openLogsFolder: () => ipcRenderer.invoke(IPC.appOpenLogsFolder),
+    restartPython: () => ipcRenderer.invoke(IPC.appRestartPython)
   },
   brands: {
     list: () => ipcRenderer.invoke(IPC.brandsList),
@@ -47,7 +51,6 @@ const api: Api = {
   },
   templates: {
     list: (brandId) => ipcRenderer.invoke(IPC.templatesList, brandId),
-    get: (id) => ipcRenderer.invoke(IPC.templatesGet, id),
     create: (input) => ipcRenderer.invoke(IPC.templatesCreate, input),
     rename: (id, name) => ipcRenderer.invoke(IPC.templatesRename, id, name),
     delete: (id) => ipcRenderer.invoke(IPC.templatesDelete, id),

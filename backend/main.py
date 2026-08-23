@@ -11,7 +11,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from routers import bg_remove, health, image, thumbnail, video
+from routers import bg_remove, health, image, video
 
 app = FastAPI(title="Brand Studio Backend", version="0.1.0")
 
@@ -44,7 +44,6 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(bg_remove.router)
 app.include_router(image.router)
-app.include_router(thumbnail.router)
 app.include_router(video.router)
 
 

@@ -1,4 +1,4 @@
-import { ipcMain, dialog, shell, BrowserWindow } from 'electron'
+import { ipcMain, dialog, shell, BrowserWindow, app } from 'electron'
 import { randomUUID } from 'crypto'
 import { join, normalize as normalizePath } from 'path'
 import { writeFile, readFile, mkdir, unlink } from 'fs/promises'
@@ -38,7 +38,7 @@ import {
   templatesRepo,
   videoRepo
 } from './db'
-import { getPythonPort, getPythonInfo } from './python/manager'
+import { getPythonPort, getPythonInfo, restartPython } from './python/manager'
 import { getStatus } from './python/status'
 import { logger } from './logger'
 
@@ -196,6 +196,20 @@ export function registerIpc(): void {
     safeUnlinkRelative(relativePath)
   )
 
+  ipcMain.handle(IPC.appGetVersion, () => app.getVersion())
+
+  // appOpenPath/appShowInFolder require a non-empty relative path, so the data
+  // root itself (an empty relative path) needs its own channel — no
+  // renderer-supplied path, so no validation gap.
+  ipcMain.handle(IPC.appOpenDataFolder, () => shell.openPath(getPaths().dataRoot))
+
+  // logs/ lives outside the data root (userData/logs, see storage/paths.ts),
+  // so it can't go through appOpenPath/appShowInFolder (relative-to-dataRoot
+  // only) — it gets its own channel instead, with no renderer-supplied path.
+  ipcMain.handle(IPC.appOpenLogsFolder, () => shell.openPath(getPaths().logs))
+
+  ipcMain.handle(IPC.appRestartPython, () => restartPython())
+
   ipcMain.handle(IPC.appOpenFileDialog, async (e, opts?: OpenFileDialogOptions) => {
     const win = BrowserWindow.fromWebContents(e.sender) ?? undefined
     const properties: ('openFile' | 'multiSelections')[] = ['openFile']
@@ -348,7 +362,6 @@ export function registerIpc(): void {
   handleValidated(IPC.templatesList, S.optionalIdArg, (brandId) =>
     templatesRepo.list(brandId ?? undefined)
   )
-  handleValidated(IPC.templatesGet, S.idArg, (id) => templatesRepo.get(id))
   handleValidated(IPC.templatesCreate, S.templateCreateInput, (input) =>
     templatesRepo.create(input as unknown as TemplateCreateInput)
   )

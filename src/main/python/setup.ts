@@ -58,28 +58,28 @@ export async function ensureVenv(backendDir: string): Promise<boolean> {
 
   const sysPy = await findSystemPython()
   if (!sysPy) {
-    setStatus('unavailable', 'Python non trovato sul sistema')
+    setStatus('unavailable', 'Python not found on this system')
     console.warn('[py-setup] no system Python found — server features disabled')
     return false
   }
 
-  setStatus('setting-up', 'Creazione ambiente Python…')
+  setStatus('setting-up', 'Creating Python environment…')
   if ((await run(sysPy, ['-m', 'venv', venvDir()])) !== 0) {
-    setStatus('unavailable', 'Creazione venv fallita')
+    setStatus('unavailable', 'Failed to create the Python environment')
     return false
   }
 
   const py = venvPythonPath()
-  setStatus('setting-up', 'Installazione dipendenze…')
+  setStatus('setting-up', 'Installing dependencies…')
   await run(py, ['-m', 'pip', 'install', '--upgrade', 'pip'])
   const req = join(backendDir, 'requirements.txt')
   if ((await run(py, ['-m', 'pip', 'install', '-r', req])) !== 0) {
-    setStatus('unavailable', 'Installazione dipendenze fallita')
+    setStatus('unavailable', 'Failed to install dependencies')
     return false
   }
 
   // Best-effort: pre-fetch the background-removal models so they work offline.
-  setStatus('setting-up', 'Download modelli (isnet)…')
+  setStatus('setting-up', 'Downloading models (isnet)…')
   await run(
     py,
     [

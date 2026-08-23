@@ -32,6 +32,10 @@ export const IPC = {
   appOpenPath: 'app:openPath',
   appShowInFolder: 'app:showInFolder',
   appDeleteFile: 'app:deleteFile',
+  appGetVersion: 'app:getVersion',
+  appOpenDataFolder: 'app:openDataFolder',
+  appOpenLogsFolder: 'app:openLogsFolder',
+  appRestartPython: 'app:restartPython',
 
   brandsList: 'brands:list',
   brandsGet: 'brands:get',
@@ -52,7 +56,6 @@ export const IPC = {
   projectsSaveThumb: 'projects:saveThumb',
 
   templatesList: 'templates:list',
-  templatesGet: 'templates:get',
   templatesCreate: 'templates:create',
   templatesRename: 'templates:rename',
   templatesDelete: 'templates:delete',
@@ -100,6 +103,8 @@ export interface AppPaths {
   planner: string
   database: string
   cache: string
+  /** userData/logs — where src/main/logger.ts writes main.log (outside dataRoot). */
+  logs: string
 }
 
 export interface SaveBinaryInput {
@@ -237,6 +242,16 @@ export interface Api {
     openPath(relativePath: string): Promise<void>
     showInFolder(relativePath: string): Promise<void>
     deleteFile(relativePath: string): Promise<void>
+    /** The app version from package.json (e.g. "1.0.0"). */
+    getVersion(): Promise<string>
+    /** Opens the data root folder itself (openPath/showInFolder need a non-empty
+     *  relative path, so the root can't go through them). */
+    openDataFolder(): Promise<void>
+    /** Opens userData/logs in the OS file manager — outside the data root, so it
+     *  needs its own channel rather than openPath/showInFolder (relative-path only). */
+    openLogsFolder(): Promise<void>
+    /** Restarts the Python sidecar on demand, resetting the auto-restart counter. */
+    restartPython(): Promise<void>
   }
   brands: {
     list(): Promise<Brand[]>
@@ -261,7 +276,6 @@ export interface Api {
   }
   templates: {
     list(brandId?: string): Promise<Template[]>
-    get(id: string): Promise<Template | null>
     create(input: TemplateCreateInput): Promise<Template>
     rename(id: string, name: string): Promise<void>
     delete(id: string): Promise<void>

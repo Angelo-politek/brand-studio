@@ -2,6 +2,43 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Inter is bundled with the app (src/renderer/src/assets/fonts/inter) so
+ * designs render identically across machines regardless of what's installed
+ * system-wide. Vite resolves/hashes these relative url()s for both dev and
+ * the packaged (file://) build. Konva's canvas text additionally needs the
+ * same files loaded as FontFace objects — see lib/fonts.ts:ensureBundledFonts.
+ * SIL Open Font License 1.1 — see src/renderer/src/assets/fonts/inter/OFL.txt.
+ */
+@font-face {
+  font-family: 'Inter';
+  src: url('./assets/fonts/inter/Inter-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('./assets/fonts/inter/Inter-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('./assets/fonts/inter/Inter-Italic.woff2') format('woff2');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('./assets/fonts/inter/Inter-BoldItalic.woff2') format('woff2');
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
 @layer base {
   :root {
     color-scheme: dark;

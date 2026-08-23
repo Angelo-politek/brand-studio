@@ -9,8 +9,16 @@ import {
   pagesToPdf,
   saveBytesAs,
   sanitize,
-  type ExportFmt
+  type ExportFmt,
+  type PdfPageInput
 } from '@renderer/editor/exportArtboard'
+import {
+  DPI_CHOICES,
+  clampScaleToCanvasLimit,
+  exceedsCanvasLimit,
+  formatPhysicalSize,
+  inferDpi
+} from '@renderer/lib/printSize'
 import { toast } from '@renderer/stores/uiStore'
 import { useCurrentBrand } from '@renderer/stores/brandStore'
 import type { ExportRecord } from '@shared/types'
@@ -27,6 +35,8 @@ export default function ExportDialog({ onClose }: { onClose: () => void }): JSX.
   const [format, setFormat] = useState<ExportFmt>('png')
   const [scale, setScale] = useState(2)
   const [quality, setQuality] = useState(0.92)
+  // null = follow the density implied by the canvas size (correct by default).
+  const [dpiOverride, setDpiOverride] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState<ExportRecord | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -52,6 +62,12 @@ export default function ExportDialog({ onClose }: { onClose: () => void }): JSX.
   }
   const outW = Math.round(canvas.width * (format === 'pdf' ? 1 : scale))
   const outH = Math.round(canvas.height * (format === 'pdf' ? 1 : scale))
+  // PDF pages are measured in points, so the canvas density decides the printed
+  // size. Default to the density implied by the canvas, overridable below.
+  const autoDpi = inferDpi(canvas.width, canvas.height)
+  const pdfDpi = dpiOverride ?? autoDpi
+  const tooLarge = format !== 'pdf' && exceedsCanvasLimit(canvas.width, canvas.height, scale)
+  const safeScale = clampScaleToCanvasLimit(canvas.width, canvas.height, scale)
   const presets = (brand?.presets ?? []).filter((p) =>
     (FORMATS as string[]).includes(p.format as string)
   )
@@ -77,11 +93,12 @@ export default function ExportDialog({ onClose }: { onClose: () => void }): JSX.
         stage,
         canvas,
         format,
-        scale: format === 'pdf' ? 1 : scale,
+        scale: format === 'pdf' ? 1 : safeScale,
         name,
         projectId,
         brandId,
-        quality
+        quality,
+        dpi: pdfDpi
       })
       setDone(record)
     } catch (e) {
@@ -93,12 +110,10 @@ export default function ExportDialog({ onClose }: { onClose: () => void }): JSX.
 
   // Capture the CHOSEN pages by switching the active page and re-rendering
   // between captures. Restores the originally active page when done.
-  async function captureChosenPages(): Promise<
-    { bytes: Uint8Array; width: number; height: number }[]
-  > {
+  async function captureChosenPages(): Promise<PdfPageInput[]> {
     const store = useEditorStore.getState()
     const original = store.activePageId
-    const out: { bytes: Uint8Array; width: number; height: number }[] = []
+    const out: PdfPageInput[] = []
     try {
       for (const pg of store.pages) {
         if (!selectedPages.has(pg.id)) continue
@@ -106,8 +121,17 @@ export default function ExportDialog({ onClose }: { onClose: () => void }): JSX.
         await nextFrame()
         const stage = getStage()
         if (!stage) continue
-        const png = await artboardBytes(stage, pg.canvas, 'png', format === 'pdf' ? 1 : scale)
-        out.push({ bytes: png, width: pg.canvas.width, height: pg.canvas.height })
+        // Each page carries its own size, so clamp and resolve density per page
+        // rather than assuming every page matches the active canvas.
+        const pageScale =
+          format === 'pdf' ? 1 : clampScaleToCanvasLimit(pg.canvas.width, pg.canvas.height, scale)
+        const png = await artboardBytes(stage, pg.canvas, 'png', pageScale)
+        out.push({
+          bytes: png,
+          width: pg.canvas.width,
+          height: pg.canvas.height,
+          dpi: dpiOverride ?? inferDpi(pg.canvas.width, pg.canvas.height)
+        })
       }
     } finally {
       store.setActivePage(original)
@@ -149,8 +173,9 @@ export default function ExportDialog({ onClose }: { onClose: () => void }): JSX.
           stage,
           canvas,
           format,
-          format === 'pdf' ? 1 : scale,
-          quality
+          format === 'pdf' ? 1 : safeScale,
+          quality,
+          pdfDpi
         )
         const saved = await saveBytesAs(bytes, name, format)
         if (saved) toast('Saved.', 'success')
@@ -252,6 +277,30 @@ export default function ExportDialog({ onClose }: { onClose: () => void }): JSX.
               </div>
             )}
 
+            {format === 'pdf' && (
+              <div>
+                <label className="block text-xs text-ink-faint mb-2">
+                  Print resolution
+                  {dpiOverride === null && <span className="ml-1 opacity-60">(auto)</span>}
+                </label>
+                <div className="grid grid-cols-4 gap-2">
+                  {DPI_CHOICES.map((d) => (
+                    <button
+                      key={d}
+                      onClick={() => setDpiOverride(d === autoDpi ? null : d)}
+                      className={cn(
+                        'btn py-2 text-xs',
+                        pdfDpi === d ? 'bg-surface-4 text-ink' : 'bg-surface-3 text-ink-muted'
+                      )}
+                      title={`${d} DPI`}
+                    >
+                      {d}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {(format === 'jpg' || format === 'webp') && (
               <div>
                 <label className="block text-xs text-ink-faint mb-2">
@@ -269,9 +318,22 @@ export default function ExportDialog({ onClose }: { onClose: () => void }): JSX.
               </div>
             )}
 
-            <p className="text-xs text-ink-faint">
-              Output: {outW}×{outH}px
-            </p>
+            <div className="space-y-1">
+              <p className="text-xs text-ink-faint">
+                Output: {outW}×{outH}px
+              </p>
+              {format === 'pdf' && (
+                <p className="text-xs text-ink-muted">
+                  Page size: {formatPhysicalSize(canvas.width, canvas.height, pdfDpi)}
+                </p>
+              )}
+              {tooLarge && (
+                <p className="text-[11px] text-amber-400">
+                  {scale}× would exceed the browser canvas limit and export blank — using{' '}
+                  {safeScale}× instead.
+                </p>
+              )}
+            </div>
 
             {multiPage && (
               <div>

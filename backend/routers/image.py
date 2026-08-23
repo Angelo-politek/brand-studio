@@ -1,58 +1,9 @@
-"""Image processing: filters/resize (Pillow) and palette extraction (OpenCV KMeans)."""
-
-import io
+"""Image processing: palette extraction and recolor (OpenCV KMeans)."""
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import Response
-from PIL import Image, ImageChops, ImageEnhance, ImageFilter
 
 router = APIRouter()
-
-
-@router.post("/image/process")
-async def process(
-    file: UploadFile = File(...),
-    brightness: float = Form(1.0),
-    contrast: float = Form(1.0),
-    saturation: float = Form(1.0),
-    sharpness: float = Form(1.0),
-    blur: float = Form(0.0),
-    grayscale: bool = Form(False),
-    width: int = Form(0),
-    height: int = Form(0),
-    fmt: str = Form("png"),
-) -> Response:
-    try:
-        img = Image.open(io.BytesIO(await file.read())).convert("RGBA")
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=400, detail=f"invalid image: {exc}")
-
-    if grayscale:
-        img = img.convert("L").convert("RGBA")
-    if brightness != 1.0:
-        img = ImageEnhance.Brightness(img).enhance(brightness)
-    if contrast != 1.0:
-        img = ImageEnhance.Contrast(img).enhance(contrast)
-    if saturation != 1.0:
-        img = ImageEnhance.Color(img).enhance(saturation)
-    if sharpness != 1.0:
-        img = ImageEnhance.Sharpness(img).enhance(sharpness)
-    if blur > 0:
-        img = img.filter(ImageFilter.GaussianBlur(blur))
-    if width > 0 and height > 0:
-        img = img.resize((width, height), Image.LANCZOS)
-
-    buf = io.BytesIO()
-    if fmt.lower() in ("jpg", "jpeg"):
-        img.convert("RGB").save(buf, format="JPEG", quality=92)
-        media = "image/jpeg"
-    elif fmt.lower() == "webp":
-        img.save(buf, format="WEBP", quality=92)
-        media = "image/webp"
-    else:
-        img.save(buf, format="PNG")
-        media = "image/png"
-    return Response(content=buf.getvalue(), media_type=media)
 
 
 @router.post("/image/palette")
@@ -83,44 +34,6 @@ async def palette(file: UploadFile = File(...), k: int = Form(6)) -> dict:
         r, g, b = (int(c) for c in centers[i])
         colors.append({"hex": f"#{r:02x}{g:02x}{b:02x}", "weight": float(counts[i] / total)})
     return {"colors": colors}
-
-
-@router.post("/image/tint")
-async def tint(
-    file: UploadFile = File(...),
-    color: str = Form(...),
-    intensity: float = Form(0.5),
-    mode: str = Form("multiply"),
-) -> Response:
-    """Blend a flat color over an image at the given intensity (0–1)."""
-    try:
-        img = Image.open(io.BytesIO(await file.read())).convert("RGBA")
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=400, detail=f"invalid image: {exc}")
-
-    hex_c = color.strip().lstrip("#")
-    r, g, b = int(hex_c[0:2], 16), int(hex_c[2:4], 16), int(hex_c[4:6], 16)
-    clamp = max(0.0, min(1.0, intensity))
-    alpha = int(clamp * 255)
-
-    overlay = Image.new("RGBA", img.size, (r, g, b, alpha))
-
-    if mode == "multiply":
-        base_rgb = img.convert("RGB")
-        ov_rgb = overlay.convert("RGB")
-        blended = ImageChops.multiply(base_rgb, ov_rgb).convert("RGBA")
-        # Preserve original alpha.
-        _, _, _, orig_a = img.split()
-        blended.putalpha(orig_a)
-        out = Image.alpha_composite(img, Image.new("RGBA", img.size, (0, 0, 0, 0)))
-        out = blended
-    else:
-        # Default: alpha composite overlay on top.
-        out = Image.alpha_composite(img, overlay)
-
-    buf = io.BytesIO()
-    out.save(buf, format="PNG")
-    return Response(content=buf.getvalue(), media_type="image/png")
 
 
 def _hex_to_rgb(h: str):

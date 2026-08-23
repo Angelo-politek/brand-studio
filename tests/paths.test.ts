@@ -7,7 +7,7 @@ vi.mock('electron', () => ({
   app: { getPath: () => FAKE_USERDATA }
 }))
 
-const { isUnderDataRoot, toAbsolute } = await import('@main/storage/paths')
+const { isUnderDataRoot, toAbsolute, getPaths } = await import('@main/storage/paths')
 
 describe('isUnderDataRoot', () => {
   it('accepts a path inside the data root', () => {
@@ -25,5 +25,15 @@ describe('isUnderDataRoot', () => {
 
   it('accepts the data root itself', () => {
     expect(isUnderDataRoot(toAbsolute(''))).toBe(true)
+  })
+})
+
+describe('getPaths — logs directory', () => {
+  it('exposes a logs path outside the data root, mirroring logger.ts', () => {
+    const p = getPaths()
+    // logger.ts writes to userData/logs directly (join(app.getPath('userData'), 'logs')),
+    // not userData/data/logs — the two must stay in sync.
+    expect(p.logs).toBe(join(FAKE_USERDATA, 'logs'))
+    expect(isUnderDataRoot(p.logs)).toBe(false)
   })
 })

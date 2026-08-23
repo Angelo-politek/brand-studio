@@ -18,10 +18,6 @@ export function resetPythonInfoCache(): void {
   info = null
 }
 
-export async function isPythonReady(): Promise<boolean> {
-  return (await base()) != null
-}
-
 export interface PaletteColor {
   hex: string
   weight: number
@@ -72,33 +68,6 @@ export async function recolorToPalette(
     body: form
   })
   if (!res.ok) throw new Error(`recolor failed: ${res.status}`)
-  return new Uint8Array(await res.arrayBuffer())
-}
-
-/**
- * Apply a color tint/blend to an image via the Python backend.
- * Returns PNG bytes, or null if Python is offline.
- */
-export async function tintImage(
-  bytes: Uint8Array,
-  filename: string,
-  color: string,
-  intensity: number,
-  mode: 'multiply' | 'overlay' | 'color' = 'multiply'
-): Promise<Uint8Array | null> {
-  const root = await base()
-  if (!root) return null
-  const form = new FormData()
-  form.append('file', new Blob([bytes as BlobPart], { type: 'image/png' }), filename)
-  form.append('color', color)
-  form.append('intensity', String(intensity))
-  form.append('mode', mode)
-  const res = await fetch(`${root}/image/tint`, {
-    method: 'POST',
-    headers: authHeaders(),
-    body: form
-  })
-  if (!res.ok) throw new Error(`tint failed: ${res.status}`)
   return new Uint8Array(await res.arrayBuffer())
 }
 

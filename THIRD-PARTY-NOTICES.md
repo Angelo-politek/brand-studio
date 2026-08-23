@@ -119,7 +119,24 @@ the Python sidecar (`rembg`) for one-click background removal
 
 ---
 
-## 3. JavaScript / TypeScript dependencies (Electron app, `dependencies`)
+## 3. Bundled font — Inter (SIL OFL 1.1)
+
+Brand Studio ships the Inter typeface so that designs render identically on
+every machine, whether or not the user has Inter installed. Without a bundled
+font, text would silently fall back to a system face and a design created on
+one computer would look different on another.
+
+- **Files:** `src/renderer/src/assets/fonts/inter/Inter-{Regular,Bold,Italic,BoldItalic}.woff2`
+- **Source:** official release v4.1 of <https://github.com/rsms/inter>
+- **Copyright:** © 2016 The Inter Project Authors (https://github.com/rsms/inter)
+- **License:** SIL Open Font License, Version 1.1 — full text bundled alongside
+  the fonts as `OFL.txt`. The OFL is compatible with this project's GPLv3: the
+  fonts are distributed unmodified, under their own terms, and are not
+  relicensed.
+
+---
+
+## 4. JavaScript / TypeScript dependencies (Electron app, `dependencies`)
 
 Runtime dependencies bundled into the packaged app (from `package.json`).
 Build-only `devDependencies` (TypeScript, ESLint, Vite, Vitest, Electron
@@ -171,7 +188,7 @@ in exported content complies with that brand's trademark policy.
 
 ---
 
-## 4. Python dependencies (PyInstaller-frozen sidecar)
+## 5. Python dependencies (PyInstaller-frozen sidecar)
 
 The Python backend (`backend/`) is frozen into a standalone executable with
 PyInstaller and shipped as `extraResources` (`sidecar/brandstudio-sidecar`).
@@ -205,7 +222,7 @@ does not affect Brand Studio's own license (already GPLv3, see `LICENSE`).
 
 ---
 
-## 5. How to obtain source code
+## 6. How to obtain source code
 
 Brand Studio's own source is available in this repository. For FFmpeg's
 corresponding source specifically, see the written offer in §1 above.

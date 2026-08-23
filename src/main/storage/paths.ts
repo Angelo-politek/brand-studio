@@ -17,7 +17,11 @@ export function getPaths(): AppPaths {
     exports: join(dataRoot, 'exports'),
     planner: join(dataRoot, 'planner'),
     database: join(dataRoot, 'database'),
-    cache: join(dataRoot, 'cache')
+    cache: join(dataRoot, 'cache'),
+    // Sibling of dataRoot (userData/logs), not userData/data/logs: the logger
+    // (src/main/logger.ts) has always written to userData/logs directly, so
+    // this mirrors that existing location rather than moving it.
+    logs: join(app.getPath('userData'), 'logs')
   }
   return cached
 }

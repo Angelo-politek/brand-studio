@@ -17,6 +17,7 @@ import VideoEditor from './pages/VideoEditor'
 import FeedbackHosts from './components/feedback/FeedbackHosts'
 import ErrorBoundary from './components/ErrorBoundary'
 import { resetPythonInfoCache } from './lib/python'
+import { ensureBundledFonts } from './lib/fonts'
 
 function RequireBrand({ children }: { children: ReactNode }): JSX.Element {
   const currentBrandId = useBrandStore((s) => s.currentBrandId)
@@ -32,6 +33,14 @@ function App(): JSX.Element {
   useEffect(() => {
     void load()
   }, [load])
+
+  // Load the bundled Inter faces as FontFaces once at startup, so Konva's
+  // canvas text (and every design's default font) is ready regardless of
+  // what's installed on this machine — see lib/fonts.ts for why this can't
+  // just rely on the @font-face rule in index.css.
+  useEffect(() => {
+    void ensureBundledFonts()
+  }, [])
 
   // Keep the sidecar client cache fresh: a restart issues a new port + token.
   useEffect(() => {

@@ -50,10 +50,27 @@ jobs:
       - name: Build installer
         run: npm run package:full
 
+      # The installer is unsigned, so publish checksums people can verify against.
+      - name: Compute installer checksums
+        shell: pwsh
+        run: |
+          $lines = Get-ChildItem dist/*.exe | ForEach-Object {
+            $h = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
+            "$h  $($_.Name)"
+          }
+          $lines | Tee-Object -FilePath dist/SHA256SUMS.txt
+          "" | Out-File -Append $env:GITHUB_STEP_SUMMARY
+          "### SHA-256" | Out-File -Append $env:GITHUB_STEP_SUMMARY
+          '```' | Out-File -Append $env:GITHUB_STEP_SUMMARY
+          $lines | Out-File -Append $env:GITHUB_STEP_SUMMARY
+          '```' | Out-File -Append $env:GITHUB_STEP_SUMMARY
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*.exe
+          files: |
+            dist/*.exe
+            dist/SHA256SUMS.txt
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

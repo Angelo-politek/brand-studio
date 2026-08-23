@@ -1,8 +1,21 @@
 # Brand Studio
 
-**Offline-first brand management and social content creation studio for Windows.**
+**A design studio that runs entirely on your machine. No cloud, no account, no subscription.**
 
-Brand Studio runs entirely on your machine — no cloud, no subscriptions, no data leaving your device. Design graphics, edit videos, manage your brand kit, and plan your content calendar from a single desktop app.
+Design graphics, edit videos, manage brand kits and plan content — all from one desktop app, all
+stored as ordinary files on your own disk. Your work stays yours: if this project ever disappears,
+your designs, assets and exports are still sitting in a folder you control.
+
+Brand Studio is general-purpose by design, and meant to be shaped around what *you* make. It ships
+with the everyday essentials — social formats, print sizes, marketing banners — plus an example of
+how far that customisation goes: a built-in kit for **audio hardware front panels** (Eurorack and
+19" rack presets with real millimetre dimensions, plus knobs, faders, jacks, LEDs and displays as
+first-class, parametric objects).
+
+That kit exists because it scratched a real itch. The point is that nothing about it is special:
+it is built on the same layer model as everything else, so the same approach can produce a kit for
+board-game cards, lab equipment labels, or whatever your own work needs. It is open source — fork
+it and build your own.
 
 ---
 
@@ -60,6 +73,23 @@ Brand Studio runs entirely on your machine — no cloud, no subscriptions, no da
 
 ---
 
+## What Brand Studio is not
+
+Being honest about this up front saves everyone time. Brand Studio is a layout and content tool,
+not a vector illustration suite. It does **not** have:
+
+- a pen / Bézier path tool — shapes are parametric primitives
+- SVG import as editable vectors (SVG files import as assets, not as paths)
+- text on a path, auto-layout, or reusable components/symbols with instances
+- CMYK, bleed or crop marks — PDF export is RGB and not print-shop ready
+- arbitrary clipping masks (image masks are rectangular or circular)
+
+If you need those, Inkscape and Illustrator do them well — and Brand Studio is happy to sit
+alongside them. What it gives you instead is everything in one offline place, with your brand
+applied consistently across designs, reels and exports.
+
+---
+
 ## System Requirements
 
 | Component | Minimum |
@@ -78,6 +108,25 @@ Brand Studio runs entirely on your machine — no cloud, no subscriptions, no da
 1. Download `brand-studio-1.0.0-setup.exe` from the [Releases](../../releases) page.
 2. Run the installer and follow the prompts.
 3. Launch **Brand Studio** from the Start menu or Desktop shortcut. Everything works offline out of the box.
+
+### "Windows protected your PC"
+
+The installer is **not code-signed** — a certificate costs a few hundred euros a year, which is
+hard to justify for a free project. Windows SmartScreen will therefore show a blue warning the
+first time you run it:
+
+> Click **More info** → **Run anyway**.
+
+If you would rather verify the download yourself, every release lists the SHA-256 checksum of the
+installer. On Windows:
+
+```powershell
+Get-FileHash .rand-studio-1.0.0-setup.exe -Algorithm SHA256
+```
+
+Compare the result with the hash published on the release page. The full source is in this
+repository, and the installer is built by a public GitHub Actions workflow
+([`release.yml`](.github/workflows/release.yml)) — so you can also just build it yourself.
 
 ---
 

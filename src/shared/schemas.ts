@@ -117,6 +117,20 @@ export const exportSaveInput = z.object({
   settings: z.record(z.unknown()).optional()
 })
 
+/**
+ * Register an ExportRecord for a file the caller already wrote to disk (e.g.
+ * the Python sidecar writing an MP4 directly), instead of re-uploading bytes
+ * over IPC. `relativePath` must resolve under the data root — checked again in
+ * the handler via assertUnderDataRoot.
+ */
+export const exportSaveExistingInput = z.object({
+  projectId: id.nullable(),
+  brandId: id.nullable(),
+  format: nonEmpty,
+  relativePath: nonEmpty,
+  settings: z.record(z.unknown()).optional()
+})
+
 export const plannerCreateInput = z.object({
   brandId: id,
   date: nonEmpty,

@@ -1,8 +1,8 @@
-import { app, shell, BrowserWindow, session } from 'electron'
+import { app, shell, BrowserWindow, session, dialog } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { registerMediaScheme, handleMediaProtocol } from './storage/protocol'
-import { ensureDataDirs } from './storage/paths'
+import { ensureDataDirs, getPaths } from './storage/paths'
 import { initDb, closeDb } from './db'
 import { registerIpc } from './ipc'
 import { startPython, stopPython } from './python/manager'
@@ -89,13 +89,39 @@ function createWindow(): void {
   }
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   electronApp.setAppUserModelId('com.brandstudio.app')
 
   installGlobalErrorHandlers()
   logger.info('app ready')
   ensureDataDirs()
-  initDb()
+
+  try {
+    await initDb()
+  } catch (err) {
+    // A failed migration (corrupt DB, file locked by another instance, …) must
+    // never leave the user with a silent ghost process and no window. Tell them
+    // where to look, then quit cleanly instead of propagating the exception.
+    logger.error('initDb failed — quitting', err)
+    const message = err instanceof Error ? err.message : String(err)
+    let paths = { database: 'userData/data/database', logs: 'userData/logs' }
+    try {
+      const p = getPaths()
+      paths = { database: p.database, logs: join(app.getPath('userData'), 'logs') }
+    } catch {
+      /* getPaths itself failed; fall back to the generic hint above */
+    }
+    dialog.showErrorBox(
+      'Brand Studio failed to start',
+      `The local database could not be opened or upgraded.\n\n${message}\n\n` +
+        `Database folder: ${paths.database}\nLog file: ${join(paths.logs, 'main.log')}\n\n` +
+        'If another Brand Studio window is already open, close it and try again. ' +
+        'If the problem persists, back up and remove the database folder above to reset the app.'
+    )
+    app.quit()
+    return
+  }
+
   applyCsp()
   handleMediaProtocol()
   registerIpc()

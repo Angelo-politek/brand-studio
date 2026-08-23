@@ -14,6 +14,7 @@ import { useCurrentBrand } from '@renderer/stores/brandStore'
 import { PLANNER_STATUS_COLORS } from '@renderer/stores/plannerStore'
 import { mediaUrl } from '@shared/ipc'
 import { ymd } from '@renderer/lib/date'
+import { cn } from '@renderer/lib/cn'
 import type { PlannerItem, Project } from '@shared/types'
 
 const QUICK = [
@@ -167,8 +168,10 @@ export default function Dashboard(): JSX.Element {
                       className="card w-full px-3 py-2.5 flex items-center gap-3 text-left hover:border-accent/60 transition-colors"
                     >
                       <span
-                        className="h-2 w-2 rounded-full shrink-0"
-                        style={{ background: PLANNER_STATUS_COLORS[it.status] ?? '#888' }}
+                        className={cn(
+                          'h-2 w-2 rounded-full shrink-0',
+                          PLANNER_STATUS_COLORS[it.status] ?? 'bg-ink-faint'
+                        )}
                       />
                       <span className="flex-1 truncate text-sm">{it.title}</span>
                       <span className="text-xs text-ink-faint shrink-0">

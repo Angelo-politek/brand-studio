@@ -1,5 +1,8 @@
 import type Database from 'better-sqlite3'
 import { getDb } from './connection'
+import { getPaths } from '../storage/paths'
+import { backupBeforeMigration } from './backup'
+import { logger } from '../logger'
 
 /**
  * Versioned migrations keyed off `PRAGMA user_version`. Each entry is applied in
@@ -144,9 +147,23 @@ const migrations: Migration[] = [
 ]
 
 /** Apply any migrations newer than the database's stored user_version. */
-export function runMigrations(): void {
+export async function runMigrations(): Promise<void> {
   const db = getDb()
   const current = (db.pragma('user_version', { simple: true }) as number) ?? 0
+
+  // Nothing to do — skip the backup entirely so a healthy, up-to-date app
+  // never pays the cost (or risk) of a needless snapshot on every launch.
+  if (current >= migrations.length) return
+
+  try {
+    await backupBeforeMigration(db, getPaths().dataRoot, current)
+  } catch (err) {
+    // A failed backup must not block startup when a migration still needs to
+    // run — the user is better served by an upgraded, unbacked-up DB than by
+    // being stuck on an old version forever. Just log it loudly.
+    logger.error('[db] pre-migration backup failed, continuing without one:', err)
+  }
+
   for (let v = current; v < migrations.length; v++) {
     const migrate = db.transaction(() => {
       migrations[v](db)

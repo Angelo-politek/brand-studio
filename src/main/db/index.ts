@@ -13,7 +13,7 @@ export {
 export { closeDb } from './connection'
 
 /** Open the database and apply migrations. Call once on startup. */
-export function initDb(): void {
+export async function initDb(): Promise<void> {
   openDb()
-  runMigrations()
+  await runMigrations()
 }

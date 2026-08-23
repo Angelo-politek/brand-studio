@@ -60,6 +60,7 @@ export const IPC = {
 
   exportsList: 'exports:list',
   exportsSave: 'exports:save',
+  exportsSaveExisting: 'exports:saveExisting',
 
   plannerList: 'planner:list',
   plannerCreate: 'planner:create',
@@ -175,6 +176,19 @@ export interface ExportSaveInput {
   settings?: Record<string, unknown>
 }
 
+/**
+ * Registers an ExportRecord for a file already written under the data root
+ * (e.g. an MP4 produced by the Python sidecar) — no bytes travel over IPC.
+ */
+export interface ExportSaveExistingInput {
+  projectId: string | null
+  brandId: string | null
+  format: string
+  /** Data-root-relative path of the already-written file. */
+  relativePath: string
+  settings?: Record<string, unknown>
+}
+
 export interface AssetListQuery {
   brandId: string
   folder?: AssetFolder
@@ -256,6 +270,7 @@ export interface Api {
   exports: {
     list(query?: ExportListQuery): Promise<ExportRecord[]>
     save(input: ExportSaveInput): Promise<ExportRecord>
+    saveExisting(input: ExportSaveExistingInput): Promise<ExportRecord>
   }
   planner: {
     list(brandId: string): Promise<PlannerItem[]>

@@ -26,6 +26,7 @@ interface BrandState {
   brands: Brand[]
   currentBrandId: string | null
   loaded: boolean
+  loadError: string | null
   load: () => Promise<void>
   create: (name: string) => Promise<Brand>
   createDemo: () => Promise<Brand>
@@ -38,12 +39,23 @@ export const useBrandStore = create<BrandState>((set) => ({
   brands: [],
   currentBrandId: null,
   loaded: false,
+  loadError: null,
 
   async load() {
-    const brands = await window.api.brands.list()
-    const saved = localStorage.getItem(LS_KEY)
-    const currentBrandId = saved && brands.some((b) => b.id === saved) ? saved : null
-    set({ brands, currentBrandId, loaded: true })
+    try {
+      const brands = await window.api.brands.list()
+      const saved = localStorage.getItem(LS_KEY)
+      const currentBrandId = saved && brands.some((b) => b.id === saved) ? saved : null
+      set({ brands, currentBrandId, loaded: true, loadError: null })
+    } catch (err) {
+      console.error('[brandStore] failed to load brands:', err)
+      // Never leave `loaded` false forever — that would strand the app on the
+      // "Loading…" screen with no way out. Surface an error the UI can retry.
+      set({
+        loaded: true,
+        loadError: err instanceof Error ? err.message : 'Failed to load brands.'
+      })
+    }
   },
 
   async create(name) {

@@ -27,6 +27,7 @@ function RequireBrand({ children }: { children: ReactNode }): JSX.Element {
 function App(): JSX.Element {
   const load = useBrandStore((s) => s.load)
   const loaded = useBrandStore((s) => s.loaded)
+  const loadError = useBrandStore((s) => s.loadError)
 
   useEffect(() => {
     void load()
@@ -40,6 +41,23 @@ function App(): JSX.Element {
   if (!loaded) {
     return (
       <div className="h-full w-full grid place-items-center text-ink-faint text-sm">Loading…</div>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <div className="h-full w-full grid place-items-center bg-surface-0 text-center p-8">
+        <div className="max-w-md space-y-4">
+          <h1 className="text-lg font-semibold text-ink">Couldn&apos;t load your brands</h1>
+          <p className="text-sm text-ink-faint break-words">{loadError}</p>
+          <button
+            className="px-4 py-2 rounded bg-accent text-white text-sm"
+            onClick={() => void load()}
+          >
+            Retry
+          </button>
+        </div>
+      </div>
     )
   }
 

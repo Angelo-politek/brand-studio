@@ -63,6 +63,7 @@ export default function VideoEditor(): JSX.Element {
   const { videoId } = useParams<{ videoId: string }>()
   const navigate = useNavigate()
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [exportProgress, setExportProgress] = useState(0)
   const [exportStage, setExportStage] = useState('')
@@ -206,8 +207,11 @@ export default function VideoEditor(): JSX.Element {
       try {
         await window.api.video.update(vp as VideoProject)
         lastSaved.current = JSON.stringify({ name: vp.name, scenes: vp.scenes, audio: vp.audio })
+        setSaveError(false)
       } catch (err) {
         console.error('[autosave] failed:', err)
+        setSaveError(true)
+        toast('Save failed — your changes were not saved.', 'error')
       } finally {
         setSaving(false)
       }
@@ -324,7 +328,11 @@ export default function VideoEditor(): JSX.Element {
       const paths = await window.api.app.getPaths()
       const root = paths.dataRoot.replace(/\\/g, '/')
       const safeName = vp.name.replace(/[^a-zA-Z0-9_-]/g, '_') || 'reel'
-      const relPath = `exports/${safeName}_${Date.now()}.mp4`
+      // A random suffix alongside the timestamp avoids collisions between
+      // exports started in the same millisecond, echoing the UUID-prefix
+      // convention `writeBinary` uses for the other export formats.
+      const uniqueSuffix = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+      const relPath = `exports/${safeName}_${uniqueSuffix}.mp4`
       const outputPath = `${root}/${relPath}`
 
       // Per-export work dir under the data root; overlays/frames are written
@@ -443,6 +451,23 @@ export default function VideoEditor(): JSX.Element {
         setExportProgress(30 + Math.round(st.progress * 70))
         setExportStage(st.stage === 'audio' ? 'Mixing audio…' : `Encoding ${st.stage}…`)
         if (st.state === 'done') {
+          // The MP4 was written directly to disk by the Python sidecar (bytes
+          // never round-trip through the renderer), so register the finished
+          // file with the existing exports pipeline instead of re-uploading
+          // it — this is what makes the reel show up on the Exports page
+          // alongside PNG/JPG/WebP/PDF exports.
+          try {
+            await window.api.exports.saveExisting({
+              projectId: vp.id ?? null,
+              brandId: vp.brandId ?? null,
+              format: 'mp4',
+              relativePath: relPath
+            })
+          } catch (err) {
+            // Non-fatal: the file exists and is still reachable from the
+            // "Video exported" panel below even if the library record fails.
+            console.error('[video export] failed to register export record:', err)
+          }
           toast('Video exported!', 'success')
           setExportDone(relPath)
           break
@@ -568,6 +593,8 @@ export default function VideoEditor(): JSX.Element {
             <span className="text-xs text-ink-faint flex items-center gap-1">
               {saving ? (
                 'Saving…'
+              ) : saveError ? (
+                <span className="text-red-400">Save failed</span>
               ) : (
                 <>
                   <Check size={13} className="text-green-400" /> Saved

@@ -55,7 +55,8 @@ const api: Api = {
   },
   exports: {
     list: (query) => ipcRenderer.invoke(IPC.exportsList, query),
-    save: (input) => ipcRenderer.invoke(IPC.exportsSave, input)
+    save: (input) => ipcRenderer.invoke(IPC.exportsSave, input),
+    saveExisting: (input) => ipcRenderer.invoke(IPC.exportsSaveExisting, input)
   },
   planner: {
     list: (brandId) => ipcRenderer.invoke(IPC.plannerList, brandId),

@@ -11,6 +11,7 @@ import type {
   BrandCreateInput,
   ExportListQuery,
   ExportSaveInput,
+  ExportSaveExistingInput,
   OpenFileDialogOptions,
   SaveFileDialogOptions,
   PlannerCreateInput,
@@ -374,4 +375,30 @@ export function registerIpc(): void {
       throw err
     }
   })
+
+  // Registers an ExportRecord for a file already written to disk (e.g. an MP4
+  // the Python sidecar wrote directly under the data root) — no bytes travel
+  // over IPC, just the record pointing at the existing file. The path is
+  // re-validated here (not just trusted from the renderer) via
+  // assertUnderDataRoot, matching the guard every other file-touching handler
+  // uses.
+  handleValidated(
+    IPC.exportsSaveExisting,
+    S.exportSaveExistingInput,
+    async (parsed): Promise<ExportRecord> => {
+      const input = parsed as ExportSaveExistingInput
+      const abs = assertUnderDataRoot(toAbsolute(input.relativePath))
+      const filePath = toRelative(abs)
+      const record: ExportRecord = {
+        id: randomUUID(),
+        projectId: input.projectId,
+        brandId: input.brandId,
+        format: input.format,
+        filePath,
+        settings: input.settings ?? {},
+        createdAt: Date.now()
+      }
+      return exportsRepo.insert(record)
+    }
+  )
 }

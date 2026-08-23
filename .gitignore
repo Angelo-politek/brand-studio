@@ -19,6 +19,9 @@ backend/build-sidecar/
 
 # Bundled FFmpeg binaries (copied in locally, shipped via extraResources)
 resources/bin/
+
+# scripts/setup-build-env.ps1 download/extract scratch space
+.setup-cache/
 backend/test.png
 backend/proc.png
 backend/thumb.png
@@ -37,3 +40,6 @@ scripts/*.cjs
 # vitest scratch (mocked userData root in tests)
 .test-userdata/
 coverage/
+
+# Icon maps generated at build time by scripts/build-icons.mjs
+src/renderer/src/lib/generated/

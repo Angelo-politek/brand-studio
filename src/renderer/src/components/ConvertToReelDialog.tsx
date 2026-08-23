@@ -126,7 +126,10 @@ export default function ConvertToReelDialog({ onClose }: { onClose: () => void }
   // Upload a new audio file, add it to the Audio library, then select + analyze.
   async function uploadTrack(): Promise<void> {
     if (!brandId) return
-    const paths = await pickFiles([{ name: 'Audio', extensions: ['mp3', 'wav', 'm4a', 'ogg', 'aac', 'flac'] }], false)
+    const paths = await pickFiles(
+      [{ name: 'Audio', extensions: ['mp3', 'wav', 'm4a', 'ogg', 'aac', 'flac'] }],
+      false
+    )
     if (paths.length === 0) return
     const prevFolder = useAssetStore.getState().folder
     useAssetStore.setState({ folder: 'Audio' })
@@ -167,9 +170,7 @@ export default function ConvertToReelDialog({ onClose }: { onClose: () => void }
       // the highlight with the NEW length. Two rounds converge in practice, and
       // this fixes the old bug where the chosen segment length didn't match the
       // final reel length (scenes off-beat / music running out).
-      const layout = (
-        beats: number[] | null
-      ): ReturnType<typeof pagesToScenes> =>
+      const layout = (beats: number[] | null): ReturnType<typeof pagesToScenes> =>
         pagesToScenes(pages, { width, height, fit, intensity, beats, wpm })
 
       const first = layout(hasBeats ? beat.beats : null)
@@ -275,11 +276,7 @@ export default function ConvertToReelDialog({ onClose }: { onClose: () => void }
                 className="btn-surface text-[11px] px-2 py-1 disabled:opacity-50"
                 title="Carica un nuovo file audio"
               >
-                {importing ? (
-                  <Loader2 size={11} className="animate-spin" />
-                ) : (
-                  <Upload size={11} />
-                )}
+                {importing ? <Loader2 size={11} className="animate-spin" /> : <Upload size={11} />}
                 Carica…
               </button>
             </div>

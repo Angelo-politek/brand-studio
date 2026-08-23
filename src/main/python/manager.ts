@@ -41,16 +41,15 @@ function frozenSidecarPath(dir: string): string | null {
   return null
 }
 
-/** Bundled FFmpeg binaries (packaged: resources/bin; dev: resources/bin/win). */
-function bundledFfmpeg(): { ffmpeg?: string; ffprobe?: string } {
+/** Bundled FFmpeg binary (packaged: resources/bin; dev: resources/bin/win). */
+function bundledFfmpeg(): { ffmpeg?: string } {
   const dirs = is.dev
     ? [join(app.getAppPath(), 'resources', 'bin', 'win')]
     : [join(process.resourcesPath, 'bin')]
   for (const d of dirs) {
     const ffmpeg = join(d, 'ffmpeg.exe')
-    const ffprobe = join(d, 'ffprobe.exe')
     if (existsSync(ffmpeg)) {
-      return { ffmpeg, ffprobe: existsSync(ffprobe) ? ffprobe : undefined }
+      return { ffmpeg }
     }
   }
   return {}
@@ -109,8 +108,7 @@ async function spawnSidecar(dir: string): Promise<void> {
     // Path-validation allowlist for the sidecar (see routers/video.py).
     BS_DATA_ROOT: getPaths().dataRoot,
     BS_PORT: String(port),
-    ...(ff.ffmpeg ? { BS_FFMPEG: ff.ffmpeg } : {}),
-    ...(ff.ffprobe ? { BS_FFPROBE: ff.ffprobe } : {})
+    ...(ff.ffmpeg ? { BS_FFMPEG: ff.ffmpeg } : {})
   }
   // Inherited from a mis-launched Electron this would make any child Electron
   // process boot as plain Node; it must never reach the sidecar's children.

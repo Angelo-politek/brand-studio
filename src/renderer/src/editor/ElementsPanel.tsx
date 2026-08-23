@@ -333,9 +333,7 @@ function IconsTab({ onPick }: { onPick: (entry: IconEntry) => void }): JSX.Eleme
               onClick={() => setCategory(c.value)}
               className={cn(
                 'flex-1 px-1.5 py-1 rounded text-[11px] transition-colors',
-                category === c.value
-                  ? 'bg-surface-3 text-ink'
-                  : 'text-ink-muted hover:bg-surface-2'
+                category === c.value ? 'bg-surface-3 text-ink' : 'text-ink-muted hover:bg-surface-2'
               )}
             >
               {c.label}
@@ -372,9 +370,7 @@ function IconThumb({ entry }: { entry: IconEntry }): JSX.Element {
     let alive = true
     void loadIconSvg(entry.id).then((s) => {
       if (!alive || !s) return
-      let out = s
-        .replace(/width="\d+"/, 'width="20"')
-        .replace(/height="\d+"/, 'height="20"')
+      let out = s.replace(/width="\d+"/, 'width="20"').replace(/height="\d+"/, 'height="20"')
       // Brand logos: tint the monochrome path with the official color so the
       // gallery previews look like the real logos.
       if (entry.source === 'simple' && entry.defaultColor) {

@@ -694,7 +694,10 @@ export default function VideoEditor(): JSX.Element {
             className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-6"
             onClick={() => setExportDone(null)}
           >
-            <div className="card w-full max-w-md p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div
+              className="card w-full max-w-md p-5 space-y-4"
+              onClick={(e) => e.stopPropagation()}
+            >
               <div className="flex items-center gap-2">
                 <Check size={18} className="text-green-400" />
                 <h2 className="font-semibold">Video exported</h2>

@@ -1,18 +1,11 @@
 name: CI
 
 # Quality gate: typecheck, lint, tests and a production build.
-# NOTE: this project lives in a subfolder of a larger repo. If BrandStudio is
-# published as its own repository, move this file to the repo root's
-# .github/workflows/ and drop the `working-directory`/`defaults` paths below.
 
 on:
   push:
-    branches: [main, master, hardening-v1]
+    branches: [main]
   pull_request:
-
-defaults:
-  run:
-    working-directory: BrandStudio
 
 jobs:
   quality:
@@ -24,7 +17,7 @@ jobs:
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: BrandStudio/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
         run: npm ci

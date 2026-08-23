@@ -128,6 +128,25 @@ npm run lint
 
 ## Building the Installer
 
+From a clean clone, everything the packaged build needs (`backend/.venv`,
+FFmpeg, the ONNX models) is gitignored and has to be fetched once:
+
+```bash
+npm ci                              # Node dependencies
+powershell -ExecutionPolicy Bypass -File scripts/setup-build-env.ps1
+npm run package:full                # freezes the Python sidecar (PyInstaller), then builds the installer
+```
+
+`scripts/setup-build-env.ps1` is idempotent — safe to re-run on a machine
+that already has some or all of these in place, it skips whatever is already
+present and verified. It:
+- creates `backend/.venv` (using the system Python) and installs `requirements.txt` + `requirements-dev.txt`
+- downloads FFmpeg from a pinned, checksummed release and extracts `ffmpeg.exe` into `resources/bin/win/`
+- downloads the two ONNX background-removal models into `backend/models/`, each checksum-verified
+
+Once the build environment is prepared, `npm run package` (without `:full`)
+reuses the last sidecar build:
+
 ```bash
 npm run package:full   # freezes the Python sidecar (PyInstaller), then builds the installer
 npm run package        # installer only (reuses the last sidecar build)
@@ -137,10 +156,12 @@ Output: `dist/brand-studio-1.0.0-setup.exe`
 
 The installer bundles:
 - the PyInstaller-frozen sidecar (`backend/dist-sidecar/` → `resources/sidecar/`) — no system Python needed
-- FFmpeg/FFprobe (`resources/bin/win/` → `resources/bin/`, wired to the sidecar via `BS_FFMPEG`/`BS_FFPROBE`)
-- the rembg model (`backend/models/u2net.onnx` → `resources/backend/models/`)
+- FFmpeg (`resources/bin/win/ffmpeg.exe` → `resources/bin/`, wired to the sidecar via `BS_FFMPEG`)
+- the rembg models (`backend/models/{isnet-general-use,u2net_human_seg}.onnx` → `resources/backend/models/`)
 
-Prerequisites for building: `backend/.venv` with `requirements.txt` + `pyinstaller` installed, and `ffmpeg.exe`/`ffprobe.exe` copied into `resources/bin/win/`.
+Tagging a release (`git tag v1.0.0 && git push --tags`) triggers
+`.github/workflows/release.yml`, which runs the same steps on
+`windows-latest` and publishes the installer to GitHub Releases.
 
 ---
 
@@ -183,4 +204,6 @@ All data is stored locally in `%APPDATA%\brand-studio\`:
 
 ## License
 
-MIT © Brand Studio
+GPLv3 © Brand Studio
+
+Brand Studio is licensed under the [GNU General Public License v3.0](LICENSE) (or later). This is a change from the project's earlier MIT intent: the app bundles an FFmpeg build compiled with `--enable-gpl --enable-version3` (for `libx264` MP4 export), and GPLv3 is the license that combination legally requires for the whole application. See [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) for FFmpeg's source offer and the licenses of all bundled dependencies and models.

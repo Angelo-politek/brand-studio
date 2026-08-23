@@ -87,11 +87,7 @@ function bestSnap(
   return best
 }
 
-export function computeSmartSnap(
-  drag: Box,
-  others: Box[],
-  o: SnapOptions
-): SnapResult {
+export function computeSmartSnap(drag: Box, others: Box[], o: SnapOptions): SnapResult {
   const { threshold } = o
   const alignGuides: AlignGuide[] = []
   const spacingGuides: SpacingGuide[] = []
@@ -218,9 +214,7 @@ function equalSpacing(
   const size = axis === 'x' ? drag.w : drag.h
 
   // Consider only boxes that overlap on the cross axis (visually in a row/col).
-  const inLine = others.filter(
-    (b) => crossLo(b) < crossHi(drag) && crossHi(b) > crossLo(drag)
-  )
+  const inLine = others.filter((b) => crossLo(b) < crossHi(drag) && crossHi(b) > crossLo(drag))
   const left = inLine.filter((b) => hi(b) <= lo(drag)).sort((a, b) => hi(b) - hi(a))[0]
   const right = inLine.filter((b) => lo(b) >= hi(drag)).sort((a, b) => lo(a) - lo(b))[0]
   if (!left || !right) return null

@@ -120,7 +120,9 @@ export default function ContextMenu({ layerId, x, y, onClose }: Props): JSX.Elem
           if (opts.closeAfter !== false) onClose()
         }}
         className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-          opts.danger ? 'text-red-400 hover:text-red-300 hover:bg-surface-3' : 'text-ink hover:bg-surface-3'
+          opts.danger
+            ? 'text-red-400 hover:text-red-300 hover:bg-surface-3'
+            : 'text-ink hover:bg-surface-3'
         }`}
       >
         {icon}

@@ -1,10 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import {
-  animateLayer,
-  ease,
-  sceneTransitionState,
-  locateOnTimeline
-} from '@renderer/lib/videoAnim'
+import { animateLayer, ease, sceneTransitionState, locateOnTimeline } from '@renderer/lib/videoAnim'
 import type { Layer, LayerAnimation } from '@shared/types'
 
 function layer(anim?: LayerAnimation): Layer {

@@ -1,0 +1,59 @@
+name: Release
+
+# Builds the Windows installer and publishes it to a GitHub Release whenever
+# a `v*` tag is pushed (e.g. v1.0.0).
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows-installer:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      # backend/models + resources/bin together are ~500 MB of pinned,
+      # checksum-verified downloads (FFmpeg + 2 ONNX models). They never
+      # change unless scripts/setup-build-env.ps1 is edited (new version or
+      # checksum), so caching them keyed on that file's hash turns most
+      # release builds into a cache hit instead of a ~500 MB re-download.
+      - name: Cache build assets (FFmpeg + ONNX models)
+        uses: actions/cache@v4
+        with:
+          path: |
+            backend/models
+            resources/bin
+          key: build-assets-${{ hashFiles('scripts/setup-build-env.ps1') }}
+
+      - name: Prepare build environment (venv, FFmpeg, ONNX models)
+        shell: pwsh
+        run: ./scripts/setup-build-env.ps1
+
+      - name: Build installer
+        run: npm run package:full
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.exe
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

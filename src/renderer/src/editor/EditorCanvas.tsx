@@ -622,9 +622,7 @@ export default function EditorCanvas({
           {alignGuides.map((g, i) => (
             <Line
               key={`ag${i}`}
-              points={
-                g.axis === 'x' ? [g.pos, g.from, g.pos, g.to] : [g.from, g.pos, g.to, g.pos]
-              }
+              points={g.axis === 'x' ? [g.pos, g.from, g.pos, g.to] : [g.from, g.pos, g.to, g.pos]}
               stroke="#f43f7e"
               strokeWidth={1 / zoom}
               listening={false}

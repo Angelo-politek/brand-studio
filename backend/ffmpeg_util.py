@@ -1,7 +1,7 @@
-"""Locate the FFmpeg binaries.
+"""Locate the FFmpeg binary.
 
-In a packaged install the Electron main process points BS_FFMPEG/BS_FFPROBE at
-the bundled executables; in dev they fall back to whatever is on PATH.
+In a packaged install the Electron main process points BS_FFMPEG at the
+bundled executable; in dev it falls back to whatever is on PATH.
 """
 
 import os
@@ -10,10 +10,6 @@ import shutil
 
 def ffmpeg_path() -> str:
     return os.environ.get("BS_FFMPEG") or "ffmpeg"
-
-
-def ffprobe_path() -> str:
-    return os.environ.get("BS_FFPROBE") or "ffprobe"
 
 
 def ffmpeg_available() -> bool:

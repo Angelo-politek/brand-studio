@@ -22,14 +22,19 @@ extraResources:
   # PyInstaller-frozen sidecar (built by scripts/build-sidecar.ps1).
   - from: backend/dist-sidecar/brandstudio-sidecar
     to: sidecar/brandstudio-sidecar
-  # rembg model, resolved via U2NET_HOME -> resources/backend/models.
+  # rembg models, resolved via U2NET_HOME -> resources/backend/models.
+  # Explicit list: isnet-general-use (default) + u2net_human_seg (Person mode).
+  # The legacy u2net.onnx is not shipped.
   - from: backend/models
     to: backend/models
     filter:
-      - '*.onnx'
-  # FFmpeg binaries, resolved via BS_FFMPEG/BS_FFPROBE.
+      - 'isnet-general-use.onnx'
+      - 'u2net_human_seg.onnx'
+  # FFmpeg binary, resolved via BS_FFMPEG.
   - from: resources/bin/win
     to: bin
+    filter:
+      - 'ffmpeg.exe'
 win:
   icon: build/icon.ico
   target:
@@ -39,4 +44,5 @@ nsis:
   shortcutName: ${productName}
   oneClick: false
   allowToChangeInstallationDirectory: true
+  license: LICENSE
 npmRebuild: true

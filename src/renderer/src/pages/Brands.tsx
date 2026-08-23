@@ -59,10 +59,17 @@ export default function Brands(): JSX.Element {
   useEffect(() => {
     if (!dirty || !draft) return
     const t = setTimeout(async () => {
-      await update(draft)
-      setDirty(false)
-      setSaved(true)
-      setTimeout(() => setSaved(false), 1500)
+      try {
+        await update(draft)
+        setDirty(false)
+        setSaved(true)
+        setTimeout(() => setSaved(false), 1500)
+      } catch (err) {
+        // Leave `dirty` true so the "Saving…" indicator reflects reality and
+        // the change is retried on the next edit — losing it silently would
+        // mean the user believes it was saved when it was not.
+        toast(`Failed to save brand changes: ${(err as Error).message}`, 'error')
+      }
     }, 400)
     return () => clearTimeout(t)
   }, [dirty, draft, update])
@@ -76,16 +83,20 @@ export default function Brands(): JSX.Element {
 
   /* ------------------------------- logos ------------------------------- */
   async function uploadLogo(type: BrandLogoType): Promise<void> {
-    const [path] = await pickFiles(IMAGE_FILTERS)
-    if (!path) return
-    const bytes = await readFileBytes(path)
-    const name = basename(path)
-    const rel = await saveBinary('brands', name, bytes)
-    const old = draft!.logos.find((l) => l.type === type)
-    if (old) void window.api.app.deleteFile(old.filePath)
-    const logos = draft!.logos.filter((l) => l.type !== type)
-    logos.push({ type, filePath: rel, format: extOf(name) })
-    patch({ logos })
+    try {
+      const [path] = await pickFiles(IMAGE_FILTERS)
+      if (!path) return
+      const bytes = await readFileBytes(path)
+      const name = basename(path)
+      const rel = await saveBinary('brands', name, bytes)
+      const old = draft!.logos.find((l) => l.type === type)
+      if (old) void window.api.app.deleteFile(old.filePath)
+      const logos = draft!.logos.filter((l) => l.type !== type)
+      logos.push({ type, filePath: rel, format: extOf(name) })
+      patch({ logos })
+    } catch (err) {
+      toast(`Failed to upload logo: ${(err as Error).message}`, 'error')
+    }
   }
   function removeLogo(type: BrandLogoType): void {
     const old = draft!.logos.find((l) => l.type === type)
@@ -128,18 +139,22 @@ export default function Brands(): JSX.Element {
     patch({ fonts: draft!.fonts.map((f) => (f.role === role ? { ...f, family } : f)) })
   }
   async function importFont(role: BrandFontRole): Promise<void> {
-    const [path] = await pickFiles(FONT_FILTERS)
-    if (!path) return
-    const bytes = await readFileBytes(path)
-    const name = basename(path)
-    const rel = await saveBinary('brands', name, bytes)
-    const oldFont = draft!.fonts.find((f) => f.role === role)
-    if (oldFont?.filePath) void window.api.app.deleteFile(oldFont.filePath)
-    const family = name.replace(/\.[^.]+$/, '')
-    await registerFont(family, rel)
-    patch({
-      fonts: draft!.fonts.map((f) => (f.role === role ? { ...f, family, filePath: rel } : f))
-    })
+    try {
+      const [path] = await pickFiles(FONT_FILTERS)
+      if (!path) return
+      const bytes = await readFileBytes(path)
+      const name = basename(path)
+      const rel = await saveBinary('brands', name, bytes)
+      const oldFont = draft!.fonts.find((f) => f.role === role)
+      if (oldFont?.filePath) void window.api.app.deleteFile(oldFont.filePath)
+      const family = name.replace(/\.[^.]+$/, '')
+      await registerFont(family, rel)
+      patch({
+        fonts: draft!.fonts.map((f) => (f.role === role ? { ...f, family, filePath: rel } : f))
+      })
+    } catch (err) {
+      toast(`Failed to import font: ${(err as Error).message}`, 'error')
+    }
   }
 
   /* ------------------------------- presets ----------------------------- */

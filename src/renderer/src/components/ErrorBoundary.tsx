@@ -29,13 +29,13 @@ export default class ErrorBoundary extends Component<Props, State> {
     return (
       <div className="h-full w-full grid place-items-center bg-surface-0 text-center p-8">
         <div className="max-w-md space-y-4">
-          <h1 className="text-lg font-semibold text-ink">Qualcosa è andato storto</h1>
+          <h1 className="text-lg font-semibold text-ink">Something went wrong</h1>
           <p className="text-sm text-ink-faint break-words">{this.state.error.message}</p>
           <button
             className="px-4 py-2 rounded bg-accent text-white text-sm"
             onClick={() => window.location.reload()}
           >
-            Ricarica l&apos;app
+            Reload the app
           </button>
         </div>
       </div>

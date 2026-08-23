@@ -378,6 +378,14 @@ export const exportsRepo = {
       )
       .run({ ...record, settings: JSON.stringify(record.settings) })
     return record
+  },
+  /**
+   * `exports.brand_id` carries no FK constraint (a brand can be deleted while
+   * an export record is kept queryable elsewhere), so nothing cascades these
+   * rows away automatically — brand deletion must remove them explicitly.
+   */
+  deleteByBrand(brandId: string): void {
+    getDb().prepare('DELETE FROM exports WHERE brand_id = ?').run(brandId)
   }
 }
 

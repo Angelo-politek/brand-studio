@@ -109,7 +109,7 @@ export default function Editor(): JSX.Element {
       return true
     } catch (err) {
       console.error('autosave failed', err)
-      toast('Salvataggio non riuscito — le modifiche non sono state salvate.', 'error')
+      toast('Save failed — your changes were not saved.', 'error')
       return false
     } finally {
       setSaving(false)

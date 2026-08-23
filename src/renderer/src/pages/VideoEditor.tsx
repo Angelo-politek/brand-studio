@@ -71,6 +71,7 @@ export default function VideoEditor(): JSX.Element {
   const [exportDone, setExportDone] = useState<string | null>(null)
   const [picker, setPicker] = useState<'video' | 'audio' | null>(null)
   const lastSaved = useRef('')
+  const lastThumbSig = useRef('')
   const exportJobId = useRef<string | null>(null)
   const exportCancelled = useRef(false)
 
@@ -182,6 +183,9 @@ export default function VideoEditor(): JSX.Element {
       store.getState().loadProject(vp)
       store.temporal.getState().clear()
       lastSaved.current = JSON.stringify({ name: vp.name, scenes: vp.scenes, audio: vp.audio })
+      lastThumbSig.current = vp.scenes[0]
+        ? JSON.stringify({ w: vp.width, h: vp.height, scene: vp.scenes[0] })
+        : ''
       const brand =
         useBrandStore.getState().brands.find((b) => b.id === vp.brandId) ??
         (await window.api.brands.get(vp.brandId))
@@ -218,6 +222,35 @@ export default function VideoEditor(): JSX.Element {
     }, 600)
     return () => clearTimeout(t)
   }, [name, scenes, audio, store])
+
+  // Debounced thumbnail refresh, decoupled from the autosave above: only the
+  // first scene's content (plus project size) matters for the grid thumb, so
+  // this fires far less often than a full autosave would. Rendered off-screen
+  // from the live editor stage (see lib/videoThumbnail.ts) so it never
+  // depends on which scene is currently active on screen, and best-effort —
+  // a failure here must never surface as a save error.
+  useEffect(() => {
+    const firstScene = scenes[0]
+    if (!firstScene) return
+    const sig = JSON.stringify({ w: width, h: height, scene: firstScene })
+    if (sig === lastThumbSig.current) return
+    const t = setTimeout(() => {
+      void (async () => {
+        const vp = store.getState().toProject()
+        if (!vp.id) return
+        try {
+          const { generateVideoProjectThumbBytes } = await import('@renderer/lib/videoThumbnail')
+          const bytes = await generateVideoProjectThumbBytes(vp.scenes, vp.width, vp.height)
+          if (bytes) await window.api.video.saveThumb(vp.id, bytes)
+          lastThumbSig.current = sig
+        } catch (e) {
+          console.warn('[video thumbnail] refresh failed:', e)
+        }
+      })()
+    }, 1200)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scenes, width, height, store])
 
   // Scene-local playback clock. The wall clock (performance.now) always drives
   // the visuals so they can never stall; when music is present its element is
@@ -275,7 +308,7 @@ export default function VideoEditor(): JSX.Element {
     if (!durMs) {
       // A failed probe means the file is unreadable or the codec is unsupported;
       // adding it with a made-up duration would break trim and export silently.
-      toast('Impossibile leggere il video: file danneggiato o formato non supportato', 'error')
+      toast('Could not read the video: the file is corrupted or the format is unsupported', 'error')
       return
     }
     // Default geometry = full scene frame, cover fit.
@@ -533,7 +566,7 @@ export default function VideoEditor(): JSX.Element {
   async function handleSaveAsTemplate(): Promise<void> {
     const vp = store.getState().toProject()
     if (vp.scenes.length === 0) return
-    const tplName = await promptDialog('Nome del template', vp.name)
+    const tplName = await promptDialog('Template name', vp.name)
     if (!tplName) return
     try {
       await saveUserReelTemplate({
@@ -543,9 +576,9 @@ export default function VideoEditor(): JSX.Element {
         scenes: vp.scenes,
         audio: vp.audio ?? null
       })
-      toast('Template salvato!', 'success')
+      toast('Template saved!', 'success')
     } catch (err) {
-      toast(`Salvataggio template fallito: ${(err as Error).message}`, 'error')
+      toast(`Save failed: ${(err as Error).message}`, 'error')
     }
   }
 
@@ -604,7 +637,7 @@ export default function VideoEditor(): JSX.Element {
             <button
               onClick={() => void handleSaveAsTemplate()}
               className="btn-ghost px-2 py-1.5"
-              title="Salva come template riutilizzabile"
+              title="Save as reusable template"
             >
               <LayoutTemplate size={15} />
             </button>

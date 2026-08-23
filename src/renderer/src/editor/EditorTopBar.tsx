@@ -413,7 +413,7 @@ export default function EditorTopBar({
         <button
           onClick={onConvertToReel}
           className="btn-ghost px-2 py-1.5 text-sm"
-          title="Converti in Reel video a tempo di musica"
+          title="Convert to a music-synced video reel"
         >
           <Film size={16} />
         </button>

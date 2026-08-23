@@ -20,15 +20,15 @@ import type { Asset, Page } from '@shared/types'
 
 /** Reading speed presets mapped to words-per-minute. */
 const SPEED_OPTIONS: { label: string; wpm: number }[] = [
-  { label: 'Lento', wpm: 160 },
-  { label: 'Normale', wpm: 220 },
-  { label: 'Veloce', wpm: 300 }
+  { label: 'Slow', wpm: 160 },
+  { label: 'Normal', wpm: 220 },
+  { label: 'Fast', wpm: 300 }
 ]
 
 const INTENSITY_OPTIONS: { value: ReelIntensity; label: string }[] = [
-  { value: 'subtle', label: 'Sobrio' },
-  { value: 'normal', label: 'Normale' },
-  { value: 'punchy', label: 'Energico' }
+  { value: 'subtle', label: 'Subtle' },
+  { value: 'normal', label: 'Normal' },
+  { value: 'punchy', label: 'Punchy' }
 ]
 
 /** Output format presets: null size = keep the design's own canvas size. */
@@ -38,7 +38,7 @@ const FORMAT_OPTIONS: {
   hint: string
   size: { width: number; height: number } | null
 }[] = [
-  { value: 'keep', label: 'Mantieni foglio', hint: 'Stesse dimensioni del design', size: null },
+  { value: 'keep', label: 'Keep artboard size', hint: 'Same size as the design', size: null },
   {
     value: '9x16',
     label: 'Reel 9:16',
@@ -47,19 +47,19 @@ const FORMAT_OPTIONS: {
   },
   {
     value: '1x1',
-    label: 'Quadrato 1:1',
+    label: 'Square 1:1',
     hint: '1080×1080 · Feed',
     size: { width: 1080, height: 1080 }
   },
   {
     value: '4x5',
-    label: 'Verticale 4:5',
-    hint: '1080×1350 · Feed verticale',
+    label: 'Portrait 4:5',
+    hint: '1080×1350 · Feed portrait',
     size: { width: 1080, height: 1350 }
   },
   {
     value: '16x9',
-    label: 'Orizzontale 16:9',
+    label: 'Landscape 16:9',
     hint: '1920×1080 · YouTube',
     size: { width: 1920, height: 1080 }
   }
@@ -148,7 +148,7 @@ export default function ConvertToReelDialog({ onClose }: { onClose: () => void }
 
   async function convert(): Promise<void> {
     if (!brandId) {
-      toast('Nessun brand selezionato.', 'error')
+      toast('No brand selected.', 'error')
       return
     }
     setConverting(true)
@@ -223,7 +223,7 @@ export default function ConvertToReelDialog({ onClose }: { onClose: () => void }
       navigate(`/app/video/${vp.id}`)
     } catch (err) {
       console.error('convert to reel failed', err)
-      toast('Conversione non riuscita.', 'error')
+      toast('Conversion failed.', 'error')
       setConverting(false)
     }
   }
@@ -236,7 +236,7 @@ export default function ConvertToReelDialog({ onClose }: { onClose: () => void }
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-line">
           <h2 className="font-semibold flex items-center gap-2">
-            <Film size={16} /> Converti in Reel
+            <Film size={16} /> Convert to Reel
           </h2>
           <button onClick={onClose} className="btn-ghost px-1.5 py-1.5">
             <X size={16} />
@@ -246,7 +246,7 @@ export default function ConvertToReelDialog({ onClose }: { onClose: () => void }
         <div className="p-5 space-y-5 overflow-y-auto">
           {/* Format */}
           <div>
-            <div className="text-xs text-ink-faint mb-2">Formato</div>
+            <div className="text-xs text-ink-faint mb-2">Format</div>
             <div className="grid grid-cols-2 gap-2">
               {FORMAT_OPTIONS.map((f) => (
                 <button
@@ -268,21 +268,21 @@ export default function ConvertToReelDialog({ onClose }: { onClose: () => void }
           <div>
             <div className="text-xs text-ink-faint mb-2 flex items-center justify-between">
               <span className="flex items-center gap-1">
-                <Music size={12} /> Musica
+                <Music size={12} /> Music
               </span>
               <button
                 onClick={() => void uploadTrack()}
                 disabled={importing || !brandId}
                 className="btn-surface text-[11px] px-2 py-1 disabled:opacity-50"
-                title="Carica un nuovo file audio"
+                title="Upload a new audio file"
               >
                 {importing ? <Loader2 size={11} className="animate-spin" /> : <Upload size={11} />}
-                Carica…
+                Upload…
               </button>
             </div>
             {tracks.length === 0 ? (
               <p className="text-[11px] text-ink-faint">
-                Nessuna traccia audio. Usa “Carica…” per aggiungerne una.
+                No audio tracks yet. Use “Upload…” to add one.
               </p>
             ) : (
               <select
@@ -290,7 +290,7 @@ export default function ConvertToReelDialog({ onClose }: { onClose: () => void }
                 value={trackId}
                 onChange={(e) => pickTrack(e.target.value)}
               >
-                <option value="">Nessuna (solo tempo di lettura)</option>
+                <option value="">None (reading speed only)</option>
                 {tracks.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.name}
@@ -300,14 +300,14 @@ export default function ConvertToReelDialog({ onClose }: { onClose: () => void }
             )}
             {beat.loading && (
               <div className="text-[11px] text-ink-faint mt-1 flex items-center gap-1">
-                <Loader2 size={11} className="animate-spin" /> Analisi del ritmo…
+                <Loader2 size={11} className="animate-spin" /> Analyzing tempo…
               </div>
             )}
             {!beat.loading && selectedTrack && (
               <div className="text-[11px] text-ink-faint mt-1">
                 {beat.confidence >= MIN_CONFIDENCE
-                  ? `Ritmo rilevato: ${beat.bpm} BPM`
-                  : 'Ritmo non rilevato con certezza — userò il tempo di lettura.'}
+                  ? `Tempo detected: ${beat.bpm} BPM`
+                  : 'Tempo not detected reliably — using reading speed instead.'}
               </div>
             )}
           </div>
@@ -320,13 +320,13 @@ export default function ConvertToReelDialog({ onClose }: { onClose: () => void }
                 checked={syncToBeat}
                 onChange={(e) => setSyncToBeat(e.target.checked)}
               />
-              Sincronizza le slide al ritmo
+              Sync slides to the beat
             </label>
           )}
 
           {/* Reading speed */}
           <div>
-            <div className="text-xs text-ink-faint mb-2">Velocità di lettura</div>
+            <div className="text-xs text-ink-faint mb-2">Reading speed</div>
             <div className="flex gap-2">
               {SPEED_OPTIONS.map((o) => (
                 <button
@@ -345,7 +345,7 @@ export default function ConvertToReelDialog({ onClose }: { onClose: () => void }
 
           {/* Effects intensity */}
           <div>
-            <div className="text-xs text-ink-faint mb-2">Intensità effetti</div>
+            <div className="text-xs text-ink-faint mb-2">Effects intensity</div>
             <div className="flex gap-2">
               {INTENSITY_OPTIONS.map((o) => (
                 <button
@@ -365,7 +365,7 @@ export default function ConvertToReelDialog({ onClose }: { onClose: () => void }
 
         <div className="flex justify-end gap-2 px-5 py-4 border-t border-line">
           <button onClick={onClose} className="btn-ghost text-sm" disabled={converting}>
-            Annulla
+            Cancel
           </button>
           <button
             onClick={() => void convert()}
@@ -374,11 +374,11 @@ export default function ConvertToReelDialog({ onClose }: { onClose: () => void }
           >
             {converting ? (
               <>
-                <Loader2 size={14} className="animate-spin" /> Conversione…
+                <Loader2 size={14} className="animate-spin" /> Converting…
               </>
             ) : (
               <>
-                <Film size={14} /> Crea Reel
+                <Film size={14} /> Create Reel
               </>
             )}
           </button>

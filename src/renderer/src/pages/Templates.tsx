@@ -43,8 +43,12 @@ export default function Templates(): JSX.Element {
     e.stopPropagation()
     const name = await promptDialog('Rename template', t.name)
     if (!name || name === t.name) return
-    await window.api.templates.rename(t.id, name)
-    void refresh()
+    try {
+      await window.api.templates.rename(t.id, name)
+      void refresh()
+    } catch (err) {
+      toast(`Failed to rename template: ${(err as Error).message}`, 'error')
+    }
   }
 
   async function duplicate(e: React.MouseEvent, t: Template): Promise<void> {
@@ -66,17 +70,21 @@ export default function Templates(): JSX.Element {
     values?: Record<string, string>,
     name?: string
   ): Promise<void> {
-    let layers = cloneLayers(t.layers)
-    if (values) layers = applyVariables(layers, values)
-    const project = await window.api.projects.create({
-      brandId,
-      name: name || t.name,
-      type: t.type,
-      canvas: t.canvas,
-      layers
-    })
-    setFilling(null)
-    navigate(`/app/editor/${project.id}`)
+    try {
+      let layers = cloneLayers(t.layers)
+      if (values) layers = applyVariables(layers, values)
+      const project = await window.api.projects.create({
+        brandId,
+        name: name || t.name,
+        type: t.type,
+        canvas: t.canvas,
+        layers
+      })
+      setFilling(null)
+      navigate(`/app/editor/${project.id}`)
+    } catch (err) {
+      toast(`Failed to create project from template: ${(err as Error).message}`, 'error')
+    }
   }
 
   function use(t: Template): void {
@@ -87,22 +95,30 @@ export default function Templates(): JSX.Element {
   async function openStarter(starterId: string): Promise<void> {
     const starter = STARTER_TEMPLATES.find((s) => s.id === starterId)
     if (!starter || !brandId) return
-    const layers = starter.build(starter.canvas, brand)
-    const project = await window.api.projects.create({
-      brandId,
-      name: starter.name,
-      type: 'custom',
-      canvas: starter.canvas,
-      layers
-    })
-    navigate(`/app/editor/${project.id}`)
+    try {
+      const layers = starter.build(starter.canvas, brand)
+      const project = await window.api.projects.create({
+        brandId,
+        name: starter.name,
+        type: 'custom',
+        canvas: starter.canvas,
+        layers
+      })
+      navigate(`/app/editor/${project.id}`)
+    } catch (err) {
+      toast(`Failed to open starter template: ${(err as Error).message}`, 'error')
+    }
   }
 
   async function del(e: React.MouseEvent, id: string): Promise<void> {
     e.stopPropagation()
     if (await confirmDialog('Delete this template?')) {
-      await window.api.templates.delete(id)
-      void refresh()
+      try {
+        await window.api.templates.delete(id)
+        void refresh()
+      } catch (err) {
+        toast(`Failed to delete template: ${(err as Error).message}`, 'error')
+      }
     }
   }
 

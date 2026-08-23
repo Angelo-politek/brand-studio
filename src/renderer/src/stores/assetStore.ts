@@ -3,6 +3,7 @@ import type { Asset, AssetFolder } from '@shared/types'
 import { readFileBytes, basename, fileToBytes } from '@renderer/lib/files'
 import { mimeFromName, folderFromMime, isImageMime } from '@renderer/lib/mime'
 import { makeImageThumbnail } from '@renderer/lib/thumbnail'
+import { toast } from '@renderer/stores/uiStore'
 
 export type FolderFilter = AssetFolder | 'All'
 
@@ -78,12 +79,18 @@ export const useAssetStore = create<AssetState>((set, get) => ({
   async refresh(brandId) {
     const { folder, search } = get()
     set({ loading: true })
-    const assets = await window.api.assets.list({
-      brandId,
-      folder: folder === 'All' ? undefined : folder,
-      search: search.trim() || undefined
-    })
-    set({ assets, loading: false })
+    try {
+      const assets = await window.api.assets.list({
+        brandId,
+        folder: folder === 'All' ? undefined : folder,
+        search: search.trim() || undefined
+      })
+      set({ assets })
+    } catch (e) {
+      toast(`Failed to load assets: ${(e as Error).message}`, 'error')
+    } finally {
+      set({ loading: false })
+    }
   },
 
   async importBlobs(brandId, files) {
@@ -100,6 +107,8 @@ export const useAssetStore = create<AssetState>((set, get) => ({
         imported.push(await buildImport(item, target, brandId))
       }
       set((s) => ({ assets: [...imported, ...s.assets] }))
+    } catch (e) {
+      toast(`Import failed: ${(e as Error).message}`, 'error')
     } finally {
       set({ importing: false })
     }
@@ -120,21 +129,31 @@ export const useAssetStore = create<AssetState>((set, get) => ({
         imported.push(await buildImport(item, target, brandId))
       }
       set((s) => ({ assets: [...imported, ...s.assets] }))
+    } catch (e) {
+      toast(`Import failed: ${(e as Error).message}`, 'error')
     } finally {
       set({ importing: false })
     }
   },
 
   async updateAsset(asset) {
-    const updated = await window.api.assets.update(asset)
-    set((s) => ({ assets: s.assets.map((a) => (a.id === updated.id ? updated : a)) }))
+    try {
+      const updated = await window.api.assets.update(asset)
+      set((s) => ({ assets: s.assets.map((a) => (a.id === updated.id ? updated : a)) }))
+    } catch (e) {
+      toast(`Failed to update asset: ${(e as Error).message}`, 'error')
+    }
   },
 
   async remove(id) {
-    await window.api.assets.delete(id)
-    set((s) => ({
-      assets: s.assets.filter((a) => a.id !== id),
-      selectedId: s.selectedId === id ? null : s.selectedId
-    }))
+    try {
+      await window.api.assets.delete(id)
+      set((s) => ({
+        assets: s.assets.filter((a) => a.id !== id),
+        selectedId: s.selectedId === id ? null : s.selectedId
+      }))
+    } catch (e) {
+      toast(`Failed to delete asset: ${(e as Error).message}`, 'error')
+    }
   }
 }))

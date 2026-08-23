@@ -28,6 +28,7 @@ import {
   assertUnderDataRoot,
   WRITABLE_SUBDIRS
 } from './storage/paths'
+import { collectBrandCandidatePaths, validateBrandPaths } from './storage/brandCleanup'
 import {
   assetsRepo,
   brandsRepo,
@@ -39,6 +40,7 @@ import {
 } from './db'
 import { getPythonPort, getPythonInfo } from './python/manager'
 import { getStatus } from './python/status'
+import { logger } from './logger'
 
 function sanitize(name: string): string {
   return name.replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 80) || 'file'
@@ -102,8 +104,14 @@ async function safeUnlinkRelative(relativePath: string | null): Promise<void> {
   if (!isUnderDataRoot(abs)) return
   try {
     await unlink(abs)
-  } catch {
-    /* already gone */
+  } catch (err) {
+    // ENOENT (already gone) is expected and not worth logging. Anything else
+    // (locked file, permissions) is unusual enough to record, but must never
+    // abort the caller — a failed unlink here is an orphaned file, not data
+    // loss, and the DB row referencing it is already gone by this point.
+    if ((err as NodeJS.ErrnoException)?.code !== 'ENOENT') {
+      logger.warn(`[storage] failed to delete ${relativePath}:`, err)
+    }
   }
 }
 
@@ -231,7 +239,41 @@ export function registerIpc(): void {
   handleValidated(IPC.brandsUpdate, S.brandUpdateInput, (input) =>
     brandsRepo.update(input as unknown as Brand)
   )
-  handleValidated(IPC.brandsDelete, S.idArg, (id) => brandsRepo.delete(id))
+  handleValidated(IPC.brandsDelete, S.idArg, async (id) => {
+    const brand = brandsRepo.get(id)
+    if (!brand) return
+
+    // Gather every file the brand owns BEFORE deleting the row: the child
+    // tables (assets/projects/planner/video_projects) are ON DELETE CASCADE,
+    // so their rows — and the paths in them — are gone the instant the brand
+    // row is deleted. Templates are excluded on purpose: their FK is
+    // ON DELETE SET NULL, so a brand-scoped template survives as a global
+    // template and its thumbnail must not be touched.
+    const candidates = collectBrandCandidatePaths({
+      brand,
+      assets: assetsRepo.list({ brandId: id }),
+      projects: projectsRepo.list(id),
+      videos: videoRepo.list(id),
+      exports: exportsRepo.list({ brandId: id })
+    })
+    const { valid, rejected } = validateBrandPaths(candidates, toAbsolute, isUnderDataRoot)
+    for (const rel of rejected) {
+      logger.warn(`[brands:delete] skipping path outside data root for brand ${id}:`, rel)
+    }
+
+    // Delete the DB row (and CASCADE-linked children) first. If a file
+    // unlink below fails partway through, the DB is still left consistent —
+    // no row anywhere still points at a path we then try to remove. Doing it
+    // the other way around (files first, row second) is what left assets in
+    // a broken state before: a DB row surviving a failed row-delete while its
+    // file is already gone.
+    exportsRepo.deleteByBrand(id)
+    brandsRepo.delete(id)
+
+    for (const rel of valid) {
+      await safeUnlinkRelative(rel)
+    }
+  })
 
   /* -------------------------------- assets ------------------------------ */
   handleValidated(IPC.assetsList, S.assetListQuery, (query) =>

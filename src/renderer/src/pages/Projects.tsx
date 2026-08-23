@@ -51,16 +51,24 @@ export default function Projects(): JSX.Element {
   }, [projects, query, sort])
 
   async function create(input: { name: string; type: string; canvas: CanvasSpec }): Promise<void> {
-    const project = await window.api.projects.create({ brandId, ...input })
-    setDialog({ open: false })
-    navigate(`/app/editor/${project.id}`)
+    try {
+      const project = await window.api.projects.create({ brandId, ...input })
+      setDialog({ open: false })
+      navigate(`/app/editor/${project.id}`)
+    } catch (e) {
+      toast(`Failed to create project: ${(e as Error).message}`, 'error')
+    }
   }
 
   async function del(e: React.MouseEvent, id: string): Promise<void> {
     e.stopPropagation()
     if (await confirmDialog('Delete this project?')) {
-      await window.api.projects.delete(id)
-      void refresh()
+      try {
+        await window.api.projects.delete(id)
+        void refresh()
+      } catch (err) {
+        toast(`Failed to delete project: ${(err as Error).message}`, 'error')
+      }
     }
   }
 
@@ -68,23 +76,31 @@ export default function Projects(): JSX.Element {
     e.stopPropagation()
     const name = await promptDialog('Rename project', p.name)
     if (!name || name === p.name) return
-    await window.api.projects.update({ ...p, name })
-    void refresh()
+    try {
+      await window.api.projects.update({ ...p, name })
+      void refresh()
+    } catch (err) {
+      toast(`Failed to rename project: ${(err as Error).message}`, 'error')
+    }
   }
 
   async function duplicate(e: React.MouseEvent, p: Project): Promise<void> {
     e.stopPropagation()
-    const full = await window.api.projects.get(p.id)
-    if (!full) return
-    await window.api.projects.create({
-      brandId,
-      name: `${full.name} copy`,
-      type: full.type,
-      canvas: full.canvas,
-      layers: cloneLayers(full.pages?.[0]?.layers ?? full.layers)
-    })
-    toast('Project duplicated.', 'success')
-    void refresh()
+    try {
+      const full = await window.api.projects.get(p.id)
+      if (!full) return
+      await window.api.projects.create({
+        brandId,
+        name: `${full.name} copy`,
+        type: full.type,
+        canvas: full.canvas,
+        layers: cloneLayers(full.pages?.[0]?.layers ?? full.layers)
+      })
+      toast('Project duplicated.', 'success')
+      void refresh()
+    } catch (err) {
+      toast(`Failed to duplicate project: ${(err as Error).message}`, 'error')
+    }
   }
 
   function toggleSelect(id: string): void {
@@ -104,9 +120,23 @@ export default function Projects(): JSX.Element {
   async function bulkDelete(): Promise<void> {
     if (selected.size === 0) return
     if (await confirmDialog(`Delete ${selected.size} selected project(s)?`)) {
-      for (const id of selected) await window.api.projects.delete(id)
+      let ok = 0
+      let failed = 0
+      for (const id of selected) {
+        try {
+          await window.api.projects.delete(id)
+          ok++
+        } catch {
+          failed++
+        }
+      }
       exitSelect()
       void refresh()
+      if (failed > 0) {
+        toast(`Deleted ${ok} project(s), ${failed} failed.`, 'error')
+      } else {
+        toast(`Deleted ${ok} project(s).`, 'success')
+      }
     }
   }
 

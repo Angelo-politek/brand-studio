@@ -163,6 +163,40 @@ def _write_error_log(cmd: list[str], stderr: str) -> None:
         pass
 
 
+_audio_probe_cache: dict[str, bool] = {}
+
+
+def _has_audio_stream(src: str) -> bool:
+    """True when `src` actually carries an audio track.
+
+    ffprobe is deliberately not shipped (it is a second ~150MB binary and
+    nothing else needed it), so this parses `ffmpeg -i`'s stream listing on
+    stderr, which every build prints. Failing open (returning False) is the
+    safe direction: the caller then uses the silent source, which always
+    produces a valid segment.
+
+    Results are cached per path — a reel reuses the same clip across scenes and
+    this would otherwise spawn one ffmpeg process per scene.
+    """
+    if src in _audio_probe_cache:
+        return _audio_probe_cache[src]
+    try:
+        proc = subprocess.run(
+            [ffmpeg_path(), "-hide_banner", "-i", src],
+            capture_output=True, text=True, timeout=30,
+        )
+        # `-i` with no output makes ffmpeg exit non-zero after printing the
+        # stream table; that is expected, so the return code is ignored.
+        found = any(
+            "Stream #" in line and "Audio:" in line
+            for line in proc.stderr.splitlines()
+        )
+    except (OSError, subprocess.SubprocessError):
+        found = False
+    _audio_probe_cache[src] = found
+    return found
+
+
 def _run(
     cmd: list[str],
     job: Optional[_Job] = None,
@@ -291,15 +325,19 @@ def _render_scene(
         overlay_idx = next_idx
         next_idx += 1
 
-    # Silent-audio input, when there is no clip audio to use. It MUST be declared
-    # here alongside the other inputs — declaring an -i after the output's
-    # -filter_complex/-map options makes ffmpeg reject the command.
-    use_clip_audio = has_clip and not clip.get("muted", False)
-    silent_audio_idx = None
-    if not use_clip_audio:
-        cmd += ["-f", "lavfi", "-t", str(dur), "-i", "anullsrc=channel_layout=stereo:sample_rate=44100"]
-        silent_audio_idx = next_idx
-        next_idx += 1
+    # Silent-audio input. Declared ALWAYS, not just when the clip is muted: a
+    # video file with no audio track at all is common, and `-map <clip>:a?`
+    # silently produces a segment with NO audio stream at all. Concatenating a
+    # mix of with-audio and without-audio segments then yields a broken audio
+    # timeline — the background music restarts or drops out at those scene
+    # boundaries. Keeping a silent source available lets every segment carry an
+    # audio stream, so all segments stay uniform for concat.
+    # It MUST be declared here alongside the other inputs — declaring an -i
+    # after the output's -filter_complex/-map options makes ffmpeg reject it.
+    use_clip_audio = has_clip and not clip.get("muted", False) and _has_audio_stream(clip["src"])
+    cmd += ["-f", "lavfi", "-t", str(dur), "-i", "anullsrc=channel_layout=stereo:sample_rate=44100"]
+    silent_audio_idx = next_idx
+    next_idx += 1
 
     steps: list[str] = []
     base = "0:v"
@@ -352,7 +390,9 @@ def _render_scene(
     # with the inputs above.
     if use_clip_audio:
         vol = float(clip.get("volume", 1.0))
-        cmd += ["-map", f"{clip_idx}:a?", "-af", f"volume={vol}"]
+        # No "?" here: _has_audio_stream already proved the stream exists, and a
+        # silent fallback would hide a real failure instead of surfacing it.
+        cmd += ["-map", f"{clip_idx}:a", "-af", f"volume={vol}"]
     else:
         cmd += ["-map", f"{silent_audio_idx}:a"]
 

@@ -194,6 +194,20 @@ npm run package:full                # freezes the Python sidecar (PyInstaller), 
 > and the packaged app exits at startup with a `NODE_MODULE_VERSION` mismatch.
 > Run it whenever you change the Electron version.
 
+`better-sqlite3` is a native module, and the tests and the packaged app need
+**different builds of it**: Vitest runs under Node, the app runs under
+Electron, and the two ABIs are incompatible. Switching between the two is
+explicit:
+
+```bash
+npm run rebuild:node       # before running the test suite
+npm run rebuild:electron   # before packaging the installer
+```
+
+Symptom of getting it wrong: `NODE_MODULE_VERSION` errors — the DB tests fail,
+or the packaged app quits at startup with a database error. CI is unaffected
+(each job starts from a clean install).
+
 `scripts/setup-build-env.ps1` is idempotent — safe to re-run on a machine
 that already has some or all of these in place, it skips whatever is already
 present and verified. It:

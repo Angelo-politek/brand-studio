@@ -130,3 +130,66 @@ class TestJobRegistry:
         job = video_module._Job()
         job.progress = 0.123456789
         assert job.snapshot()["progress"] == 0.1235
+
+
+class TestHasAudioStream:
+    """Regression cover for the "music restarts / drops out mid-export" bug.
+
+    A clip with no audio track used to make _render_scene emit a segment with
+    no audio stream at all (`-map <clip>:a?` silently maps nothing). Concat
+    then produced a broken audio timeline. _has_audio_stream is what lets the
+    caller fall back to the silent source so every segment stays uniform.
+    """
+
+    def test_detects_a_file_without_an_audio_track(self, video_module, monkeypatch):
+        monkeypatch.setattr(video_module, "_audio_probe_cache", {})
+        monkeypatch.setattr(
+            video_module.subprocess,
+            "run",
+            lambda *a, **k: type(
+                "R", (), {"stderr": "  Stream #0:0: Video: h264, yuv420p, 320x240\n"}
+            )(),
+        )
+        assert video_module._has_audio_stream("silent.mp4") is False
+
+    def test_detects_a_file_with_an_audio_track(self, video_module, monkeypatch):
+        monkeypatch.setattr(video_module, "_audio_probe_cache", {})
+        monkeypatch.setattr(
+            video_module.subprocess,
+            "run",
+            lambda *a, **k: type(
+                "R",
+                (),
+                {
+                    "stderr": (
+                        "  Stream #0:0: Video: h264, yuv420p, 320x240\n"
+                        "  Stream #0:1: Audio: aac (LC), 44100 Hz, stereo\n"
+                    )
+                },
+            )(),
+        )
+        assert video_module._has_audio_stream("with_audio.mp4") is True
+
+    def test_fails_closed_when_ffmpeg_cannot_run(self, video_module, monkeypatch):
+        """A probe failure must report "no audio" — the caller then uses the
+        silent source, which always yields a valid segment."""
+        monkeypatch.setattr(video_module, "_audio_probe_cache", {})
+
+        def boom(*a, **k):
+            raise OSError("ffmpeg missing")
+
+        monkeypatch.setattr(video_module.subprocess, "run", boom)
+        assert video_module._has_audio_stream("whatever.mp4") is False
+
+    def test_caches_per_path_so_a_reused_clip_probes_once(self, video_module, monkeypatch):
+        monkeypatch.setattr(video_module, "_audio_probe_cache", {})
+        calls = []
+
+        def counted(*a, **k):
+            calls.append(1)
+            return type("R", (), {"stderr": "  Stream #0:1: Audio: aac\n"})()
+
+        monkeypatch.setattr(video_module.subprocess, "run", counted)
+        assert video_module._has_audio_stream("clip.mp4") is True
+        assert video_module._has_audio_stream("clip.mp4") is True
+        assert len(calls) == 1

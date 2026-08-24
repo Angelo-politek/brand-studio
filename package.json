@@ -15,6 +15,8 @@
     "build": "electron-vite build",
     "start": "electron-vite preview",
     "rebuild": "electron-builder install-app-deps",
+    "rebuild:node": "npm rebuild better-sqlite3",
+    "rebuild:electron": "electron-rebuild -f -w better-sqlite3",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
     "typecheck": "npm run build-icons && npm run typecheck:node && npm run typecheck:web",

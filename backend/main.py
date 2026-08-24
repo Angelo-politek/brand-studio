@@ -51,7 +51,14 @@ app.include_router(video.router)
 async def _warm_models() -> None:
     """Preload the default background-removal model in a background thread so the
     first real request doesn't pay the ~2s ONNX session load. /health stays
-    responsive because this runs off the event loop."""
+    responsive because this runs off the event loop.
+
+    Skipped when BS_DISABLE_MODEL_WARMUP is set — used by the test suite so
+    constructing a TestClient (which runs startup events) doesn't spawn an
+    ONNX session load in the background of every test module."""
+    if os.environ.get("BS_DISABLE_MODEL_WARMUP"):
+        return
+
     import threading
 
     def _load() -> None:

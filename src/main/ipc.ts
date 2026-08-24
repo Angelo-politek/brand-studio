@@ -41,6 +41,7 @@ import {
 import { getPythonPort, getPythonInfo, restartPython } from './python/manager'
 import { getStatus } from './python/status'
 import { logger } from './logger'
+import { checkForUpdate } from './updateCheck'
 
 function sanitize(name: string): string {
   return name.replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 80) || 'file'
@@ -209,6 +210,10 @@ export function registerIpc(): void {
   ipcMain.handle(IPC.appOpenLogsFolder, () => shell.openPath(getPaths().logs))
 
   ipcMain.handle(IPC.appRestartPython, () => restartPython())
+
+  // No renderer-supplied input, so no Zod schema — this only ever reaches
+  // out to GitHub when the renderer explicitly invokes it (Settings button).
+  ipcMain.handle(IPC.appCheckForUpdate, () => checkForUpdate())
 
   ipcMain.handle(IPC.appOpenFileDialog, async (e, opts?: OpenFileDialogOptions) => {
     const win = BrowserWindow.fromWebContents(e.sender) ?? undefined

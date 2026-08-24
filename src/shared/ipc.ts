@@ -36,6 +36,7 @@ export const IPC = {
   appOpenDataFolder: 'app:openDataFolder',
   appOpenLogsFolder: 'app:openLogsFolder',
   appRestartPython: 'app:restartPython',
+  appCheckForUpdate: 'app:checkForUpdate',
 
   brandsList: 'brands:list',
   brandsGet: 'brands:get',
@@ -90,6 +91,22 @@ export type PythonStatusValue =
 export interface PythonStatusInfo {
   status: PythonStatusValue
   detail: string
+}
+
+/**
+ * Result of a manual "Check for updates" request (Settings page). The main
+ * process talks to GitHub's Releases API — see src/main/updateCheck.ts for
+ * why this happens in main rather than the renderer (CSP) and why it is
+ * never triggered automatically (offline-first promise, unsigned installer).
+ */
+export interface UpdateCheckResult {
+  ok: boolean
+  /** Release tag as published on GitHub, e.g. "v1.2.0". Present only if ok. */
+  latestTag?: string
+  /** HTML page for the release, to open in the browser. Present only if ok. */
+  htmlUrl?: string
+  /** User-facing message, set when ok is false (offline, rate-limited, malformed, …). */
+  error?: string
 }
 
 /** Resolved absolute data directories (created on startup). */
@@ -252,6 +269,11 @@ export interface Api {
     openLogsFolder(): Promise<void>
     /** Restarts the Python sidecar on demand, resetting the auto-restart counter. */
     restartPython(): Promise<void>
+    /**
+     * Manual, opt-in check against GitHub Releases — never called
+     * automatically. No network request happens unless this is invoked.
+     */
+    checkForUpdate(): Promise<UpdateCheckResult>
   }
   brands: {
     list(): Promise<Brand[]>

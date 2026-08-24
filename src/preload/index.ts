@@ -26,7 +26,8 @@ const api: Api = {
     getVersion: () => ipcRenderer.invoke(IPC.appGetVersion),
     openDataFolder: () => ipcRenderer.invoke(IPC.appOpenDataFolder),
     openLogsFolder: () => ipcRenderer.invoke(IPC.appOpenLogsFolder),
-    restartPython: () => ipcRenderer.invoke(IPC.appRestartPython)
+    restartPython: () => ipcRenderer.invoke(IPC.appRestartPython),
+    checkForUpdate: () => ipcRenderer.invoke(IPC.appCheckForUpdate)
   },
   brands: {
     list: () => ipcRenderer.invoke(IPC.brandsList),

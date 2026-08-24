@@ -81,7 +81,9 @@ not a vector illustration suite. It does **not** have:
 - a pen / Bézier path tool — shapes are parametric primitives
 - SVG import as editable vectors (SVG files import as assets, not as paths)
 - text on a path, auto-layout, or reusable components/symbols with instances
-- CMYK, bleed or crop marks — PDF export is RGB and not print-shop ready
+- CMYK, bleed or crop marks — PDF pages come out at the correct physical size
+  (an A4 really is 210 × 297 mm at 300 DPI), but they are RGB raster, so a
+  commercial printer may still ask for a CMYK file
 - arbitrary clipping masks (image masks are rectangular or circular)
 
 If you need those, Inkscape and Illustrator do them well — and Brand Studio is happy to sit

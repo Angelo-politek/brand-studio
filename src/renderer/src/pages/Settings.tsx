@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { FolderOpen, FileText, Github, Bug, RotateCw } from 'lucide-react'
+import { FolderOpen, FileText, Github, Bug, RotateCw, DownloadCloud } from 'lucide-react'
 import PageHeader from '@renderer/components/PageHeader'
 import { cn } from '@renderer/lib/cn'
 import { usePythonStatus, canRestartPython } from '@renderer/components/BackendStatus'
 import { toast } from '@renderer/stores/uiStore'
-import type { AppPaths, PythonStatusValue } from '@shared/ipc'
+import { isNewerVersion } from '@renderer/lib/version'
+import type { AppPaths, PythonStatusValue, UpdateCheckResult } from '@shared/ipc'
 
 const REPO_URL = 'https://github.com/Angelo-politek/brand-studio'
 const ISSUES_URL = `${REPO_URL}/issues/new`
@@ -36,6 +37,8 @@ export default function Settings(): JSX.Element {
   const [version, setVersion] = useState<string | null>(null)
   const pyStatus = usePythonStatus()
   const [restarting, setRestarting] = useState(false)
+  const [checkingUpdate, setCheckingUpdate] = useState(false)
+  const [updateResult, setUpdateResult] = useState<UpdateCheckResult | null>(null)
 
   useEffect(() => {
     void window.api.app.getPaths().then(setPaths)
@@ -51,6 +54,21 @@ export default function Settings(): JSX.Element {
       toast(`Could not restart the AI backend: ${(err as Error).message}`, 'error')
     } finally {
       setRestarting(false)
+    }
+  }
+
+  async function handleCheckForUpdate(): Promise<void> {
+    setCheckingUpdate(true)
+    setUpdateResult(null)
+    try {
+      const result = await window.api.app.checkForUpdate()
+      setUpdateResult(result)
+      if (!result.ok) toast(result.error ?? 'Could not check for updates.', 'error')
+    } catch (err) {
+      setUpdateResult({ ok: false, error: (err as Error).message })
+      toast(`Could not check for updates: ${(err as Error).message}`, 'error')
+    } finally {
+      setCheckingUpdate(false)
     }
   }
 
@@ -145,7 +163,7 @@ export default function Settings(): JSX.Element {
           <p className="text-sm text-ink-faint mb-3">
             Version <span className="font-mono text-ink-muted">{version ?? '…'}</span>
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button onClick={() => openExternal(REPO_URL)} className="btn-surface text-xs py-1.5">
               <Github size={13} />
               GitHub repository
@@ -154,7 +172,41 @@ export default function Settings(): JSX.Element {
               <Bug size={13} />
               Report an issue
             </button>
+            <button
+              onClick={() => void handleCheckForUpdate()}
+              disabled={checkingUpdate}
+              className="btn-surface text-xs py-1.5"
+            >
+              <DownloadCloud size={13} className={checkingUpdate ? 'animate-pulse' : undefined} />
+              {checkingUpdate ? 'Checking…' : 'Check for updates'}
+            </button>
           </div>
+          {updateResult?.ok && updateResult.latestTag && (
+            <p className="mt-2 text-xs text-ink-faint">
+              {version && isNewerVersion(version, updateResult.latestTag) ? (
+                <>
+                  A newer version is available ({updateResult.latestTag}).{' '}
+                  <button
+                    onClick={() => openExternal(updateResult.htmlUrl ?? REPO_URL)}
+                    className="underline hover:text-ink-muted"
+                  >
+                    View the release
+                  </button>
+                </>
+              ) : (
+                <>You&rsquo;re on the latest version.</>
+              )}
+            </p>
+          )}
+          {updateResult && !updateResult.ok && (
+            <p className="mt-2 text-xs text-ink-faint">
+              {updateResult.error ?? 'Could not check for updates.'}
+            </p>
+          )}
+          <p className="mt-2 text-xs text-ink-faint">
+            Checked only when you click the button above — Brand Studio never contacts the internet
+            on its own.
+          </p>
         </section>
       </div>
     </div>

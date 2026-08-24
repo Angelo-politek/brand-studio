@@ -36,3 +36,26 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  # The sidecar's own test suite. Kept as a separate job so a Python failure is
+  # immediately distinguishable from a JS one, and so both run in parallel.
+  sidecar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+
+      # The security tests (token middleware, _safe_path) import the real FastAPI
+      # app, which pulls in rembg/onnxruntime at module scope — so the full
+      # dependency set is genuinely needed, not just pytest. pip's cache keeps
+      # this off the critical path on repeat runs.
+      - name: Install sidecar dependencies
+        run: pip install -r backend/requirements-dev.txt
+
+      - name: Test sidecar
+        run: python -m pytest backend/tests -q

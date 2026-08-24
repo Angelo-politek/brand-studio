@@ -30,6 +30,15 @@ jobs:
       - name: Install Node dependencies
         run: npm ci
 
+      # npm ci fetches better-sqlite3's prebuilt binary for *Node*, not for
+      # Electron's ABI. Without this the packaged app dies at startup with
+      # NODE_MODULE_VERSION mismatch — it happened on a local build after the
+      # Electron 33 -> 42 upgrade. electron-builder does rebuild natives itself
+      # (npmRebuild: true), but doing it explicitly fails loudly and early
+      # rather than at first launch on a user's machine.
+      - name: Rebuild native modules for Electron
+        run: npm run rebuild
+
       # backend/models + resources/bin together are ~500 MB of pinned,
       # checksum-verified downloads (FFmpeg + 2 ONNX models). They never
       # change unless scripts/setup-build-env.ps1 is edited (new version or

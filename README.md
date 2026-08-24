@@ -184,9 +184,15 @@ FFmpeg, the ONNX models) is gitignored and has to be fetched once:
 
 ```bash
 npm ci                              # Node dependencies
+npm run rebuild                     # rebuild native modules against Electron's ABI
 powershell -ExecutionPolicy Bypass -File scripts/setup-build-env.ps1
 npm run package:full                # freezes the Python sidecar (PyInstaller), then builds the installer
 ```
+
+> `npm run rebuild` matters: `npm ci` installs `better-sqlite3`'s prebuilt
+> binary for Node, not for Electron. Skip it after an Electron version change
+> and the packaged app exits at startup with a `NODE_MODULE_VERSION` mismatch.
+> Run it whenever you change the Electron version.
 
 `scripts/setup-build-env.ps1` is idempotent — safe to re-run on a machine
 that already has some or all of these in place, it skips whatever is already

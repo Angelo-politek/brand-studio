@@ -13,6 +13,11 @@ files:
   - '!build/**'
   - '!scripts/**'
   - '!tests/**'
+  # The ~5400 icon SVGs are packed into JSON at build time by
+  # scripts/build-icons.mjs and bundled into the renderer, so the raw source
+  # packages (~79MB) would otherwise ride along in the asar for nothing.
+  - '!node_modules/lucide-static/**'
+  - '!node_modules/simple-icons/**'
   - '!electron.vite.config.{js,ts,mjs,cjs}'
   - '!vitest.config.ts'
   - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'

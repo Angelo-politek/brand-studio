@@ -51,6 +51,21 @@ export default function SceneClipNode({
     if (v && v.src !== mediaUrl(clip.src)) v.src = mediaUrl(clip.src)
   }, [clip.src])
 
+  // Tear the element down on unmount. This node is keyed by scene id, so every
+  // scene change destroys and recreates it — and a detached <video> keeps
+  // playing its audio track unless it is explicitly stopped, which stacked one
+  // more voice on top of the music at every scene boundary.
+  useEffect(() => {
+    return () => {
+      const v = videoRef.current
+      if (!v) return
+      v.pause()
+      v.removeAttribute('src')
+      v.load()
+      videoRef.current = null
+    }
+  }, [])
+
   // Drive a Konva.Animation to push video frames onto the canvas while playing.
   useEffect(() => {
     const node = imgRef.current
@@ -79,9 +94,11 @@ export default function SceneClipNode({
       if (Math.abs(v.currentTime - target) > 0.05) v.currentTime = target
       // Force a one-off redraw so the paused frame shows.
       imgRef.current?.getLayer()?.batchDraw()
-    } else if (Math.abs(v.currentTime - target) > 0.3) {
-      v.currentTime = target
     }
+    // While playing we deliberately do NOT seek. playheadMs updates every frame,
+    // and seeking a playing <video> restarts its audio decoder — that was the
+    // source of the clicks and stutters during preview. The element plays freely
+    // and is re-synced only on pause/scrub; drift over one scene is inaudible.
   }, [playheadMs, playing, clip.inMs])
 
   function onDragEnd(e: KonvaEventObject<DragEvent>): void {

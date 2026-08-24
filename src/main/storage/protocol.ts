@@ -9,7 +9,22 @@ export function registerMediaScheme(): void {
   protocol.registerSchemesAsPrivileged([
     {
       scheme: MEDIA_SCHEME,
-      privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true }
+      privileges: {
+        standard: true,
+        secure: true,
+        supportFetchAPI: true,
+        stream: true,
+        // Chromium only performs a CORS-mode fetch (as triggered by
+        // `img.crossOrigin = 'anonymous'`, used by useImage.ts so canvas
+        // exports aren't tainted) against schemes it trusts for CORS. A
+        // custom scheme without this flag is rejected outright with
+        // "Cross origin requests are only supported for protocol schemes:
+        // chrome, chrome-extension, ... http, https" — before the request
+        // even reaches handleMediaProtocol's Access-Control-Allow-Origin
+        // header below. Without it, any <img crossOrigin> load of a
+        // media:// URL fails and the canvas falls back to a gray box.
+        corsEnabled: true
+      }
     }
   ])
 }
